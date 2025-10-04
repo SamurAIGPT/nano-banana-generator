@@ -35,8 +35,8 @@ const HomePage = () => {
             <li>Be hyper-specific: Use precise descriptors like: photorealistic portrait of a woman with emerald eyes.</li>
             <li>Provide clear context: Explain the mood, style, and purpose of your desired image.</li>
             <li>Use step-by-step instructions: Break complex generations into clear, sequential steps.</li>
-            <li>Employ negative prompts: Specify what you don't want, like no blurry backgrounds.</li>
-            <li>Control composition: Use photographic terms like "wide-angle shot" or "low-angle perspective".</li>
+            <li>Employ negative prompts: Specify what you dont want, like no blurry backgrounds.</li>
+            <li>Control composition: Use photographic terms like `wide-angle shot` or `low-angle perspective`.</li>
           </ul>
         </div>
       </div>
