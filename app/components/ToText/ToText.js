@@ -29,6 +29,7 @@ const ToText = () => {
                 <Zap size={20} className="mr-2" onClick={prompting}/> Generate Image ({prompt} Credits)
             </button>
         </div>
+        
     </div>
 )};
 export default ToText

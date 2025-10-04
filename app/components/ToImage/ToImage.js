@@ -37,7 +37,8 @@ const ToImage = () => (
 
         {/* "Generate Now" Button (Gradient Style) */}
         <div className="mt-4">
-            <button className="w-full font-bold py-3 rounded-xl transition-all duration-300 shadow-xl text-lg
+            <button 
+             className="w-full font-bold py-3 rounded-xl transition-all duration-300 shadow-xl text-lg
                              bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-400 hover:to-orange-600
                              shadow-yellow-300/70 flex items-center justify-center">
                 <Zap size={20} className="mr-2" /> Generate Now

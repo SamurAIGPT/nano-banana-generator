@@ -2,6 +2,7 @@
 
 import './Navbar.css'
 import React from 'react'
+import Link from 'next/link';
 
 const Navbar = (activeLink) => {
   const navItems = ["Image Editor", "My Creations", "Showcase", "Pricing"];
@@ -11,24 +12,6 @@ const Navbar = (activeLink) => {
   }
 
   return (
-    // <header className="fixed w-full z-10 shadow-sm h-20">
-    //   <div>
-    //     <div className="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4 flex justify-between items-center h-16">
-    //         <h1 className='flex-shrink-0 font-extrabold text-xl text-gray-800' onClick={NavigateHome}>Nano Banana Biz</h1>
-    //         <div className='hidden md:flex items-center gap-8'>
-    //             {
-    //                 navItems.map(item => (
-    //                     <a key={item} href="#" className="text-gray-600 hover:text-orange-500 transition duration-150 ease-in-out font-medium">{item}</a>
-    //                 ))
-    //             }
-    //         </div>
-    //         <div className='flex items-center gap-4'>
-    //             <a href="#" className='text-gray-600 hover:text-orange-500 transition duration-150 ease-in-out font-medium signIn'>Sign In</a>
-    //             <a href="#" className='inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full shadow-sm text-white bg-orange-500 hover:bg-orange-600 transition duration-150 ease-in-out'>Sign Up</a>
-    //         </div>
-    //     </div>
-    //   </div>
-    // </header>
     <header className="sticky top-0 z-10 w-full bg-white bg-opacity-95 backdrop-blur-sm border-b border-gray-100">
     <div className="container mx-auto px-4 py-4 flex items-center justify-between">
       {/* Logo */}
@@ -41,7 +24,7 @@ const Navbar = (activeLink) => {
 
       {/* Navigation (Hidden on Mobile, shown on MD and up) */}
       <nav className="hidden md:flex items-center space-x-8 text-sm font-medium">
-        {['Image Editor', 'My Creations', 'Showcase', 'Pricing'].map((item) => (
+        {/* {['Image Editor', 'My Creations', 'Showcase', 'Pricing'].map((item) => (
           <a
             key={item}
             href={`#${item.toLowerCase().replace(' ', '-')}`}
@@ -51,14 +34,18 @@ const Navbar = (activeLink) => {
           >
             {item}
           </a>
-        ))}
+        ))} */}
+        <Link href={"/"} className="hover:text-orange-500 transition-colors text-gray-600 font-semibold">Image Editor</Link>
+        <Link href={"/MyCreations"} className="hover:text-orange-500 transition-colors text-gray-600">My Creations</Link>
+        <Link href={"/Showcase"} className="hover:text-orange-500 transition-colors text-gray-600">Showcase</Link>
+        <Link href={"/Pricing"} className="hover:text-orange-500 transition-colors text-gray-600">Pricing</Link>
       </nav>
 
       {/* Auth Buttons */}
       <div className="flex items-center space-x-3">
         <button className="hover:text-orange-500 transition-colors p-1 signIn">
           <a className="w-4 h-4 mr-1" />
-          Sign In
+          <Link href={"/SignIn"}>Sign In</Link>
         </button>
         <button className="flex items-center text-sm font-semibold text-white bg-orange-500 px-4 py-2 rounded-2xl shadow-lg shadow-orange-200 hover:bg-orange-600 transition-colors duration-200">
           <a className="w-4 h-4 mr-1 sm:hidden" />
