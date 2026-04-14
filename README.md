@@ -1,6 +1,6 @@
 # 🚀 Nano Banana Generator
 
-**Live Demo:** [https://nano-banana-generater.vercel.app](https://nano-banana-generater.vercel.app)
+**Live Demo:** [https://nano-banana-generator-psi.vercel.app](https://nano-banana-generator-psi.vercel.app)
 
 This is a **high-performance, modular AI generation engine** designed for single-click Vercel deployments. It decouples core business logic (Auth, Payments, Credits) from the UI, allowing you to build and ship multiple AI templates rapidly.
 
@@ -25,13 +25,13 @@ Deploy your own instance directly to Vercel. Provide your keys during the deploy
 
 ## 🔑 Required Environment Variables
 
-| Service | Variables |
-|---------|-----------|
-| **Google Auth** | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
-| **Stripe** | `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` |
-| **Database** | `DATABASE_URL` (Postgres) |
-| **AI (Banana)** | `NANO_BANANA_API_KEY` |
-| **NextAuth** | `NEXTAUTH_SECRET`, `NEXTAUTH_URL` |
+| Service         | Variables                                                                          |
+| --------------- | ---------------------------------------------------------------------------------- |
+| **Google Auth** | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                                         |
+| **Stripe**      | `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` |
+| **Database**    | `DATABASE_URL` (Postgres)                                                          |
+| **AI (Banana)** | `NANO_BANANA_API_KEY`                                                              |
+| **NextAuth**    | `NEXTAUTH_SECRET`, `NEXTAUTH_URL`                                                  |
 
 ## 💻 Local Development
 
@@ -45,6 +45,7 @@ Open [http://localhost:3000](http://localhost:3000).
 ## 🧩 Building New Templates
 
 To build a new template:
+
 1. Keep the `src/lib/services` and `src/app/api` folders.
 2. Update the UI in `src/app/page.js` using the reusable components in `src/components/saas`.
 3. If you want to change the AI provider, simply update `src/lib/services/ai.js`.
