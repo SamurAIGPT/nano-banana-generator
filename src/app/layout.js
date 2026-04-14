@@ -12,8 +12,8 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className="dark h-dvh w-full">
-      <body className={`${font.className} h-dvh w-full flex flex-col bg-[#020202] text-white antialiased`}>
+    <html lang="en" className="light h-dvh w-full">
+      <body className={`${font.className} h-dvh w-full flex flex-col bg-slate-50 text-slate-900 antialiased`}>
         <Providers>
           <Navbar />
           <div className="flex-1 flex flex-col overflow-hidden">

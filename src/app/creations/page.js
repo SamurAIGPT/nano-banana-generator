@@ -56,7 +56,7 @@ export default function CreationsPage() {
   }
 
   return (
-    <div className="flex-1 bg-black overflow-y-auto custom-scrollbar p-8 md:p-12">
+    <div className="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-8 md:p-12">
       <header className="max-w-7xl mx-auto mb-10 space-y-3">
         <div className="flex items-center gap-3 text-indigo-500 mb-1">
           <FaCalendarAlt className="text-sm" />
@@ -77,14 +77,14 @@ export default function CreationsPage() {
       <div className="max-w-7xl mx-auto">
         {creations.length === 0 ? (
           <div className="py-32 flex flex-col items-center justify-center text-center space-y-8">
-            <div className="w-20 h-20 rounded-3xl bg-white/5 border border-white/5 flex items-center justify-center">
-              <FaMagic className="text-3xl text-zinc-900" />
+            <div className="w-20 h-20 rounded-3xl bg-slate-100 border border-slate-200 flex items-center justify-center shadow-inner">
+              <FaMagic className="text-3xl text-slate-300" />
             </div>
             <div className="space-y-4">
               <h3 className="text-xl font-bold italic">COLLECTION EMPTY</h3>
               <button
-                onClick={() => router.push("/editor")}
-                className="px-8 py-3 bg-white text-black rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-transform"
+                onClick={() => router.push("/")}
+                className="px-8 py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all shadow-xl"
               >
                 Start your first Manifestation
               </button>
@@ -99,7 +99,7 @@ export default function CreationsPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="group relative rounded-xl bg-white/5 border border-white/5 aspect-square cursor-pointer overflow-hidden"
+                  className="group relative rounded-xl bg-white border border-slate-200 aspect-square cursor-pointer overflow-hidden shadow-sm hover:shadow-md transition-shadow transition-all"
                   onClick={() => setSelectedImage(item)}
                 >
                   <img
@@ -140,11 +140,11 @@ export default function CreationsPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.98, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="relative max-w-6xl w-full h-full bg-black border border-white/5 rounded-xl overflow-hidden flex flex-col md:flex-row shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+              className="relative max-w-6xl w-full h-full bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col md:flex-row shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Image Side */}
-              <div className="flex w-full md:w-[50%] h-[50%] md:h-full p-2 bg-black flex border-r border-white/20">
+              <div className="flex w-full md:w-[50%] h-[50%] md:h-full p-2 bg-slate-100 flex border-r border-slate-200">
                 <img
                   src={selectedImage.imageUrl}
                   className="h-full w-full object-contain"
@@ -153,13 +153,13 @@ export default function CreationsPage() {
               </div>
 
               {/* Details Side */}
-              <div className="flex w-full md:w-[50%] h-[50%] md:h-full p-6 flex flex-col bg-[#050505] overflow-y-auto custom-scrollbar">
+              <div className="flex w-full md:w-[50%] h-[50%] md:h-full p-6 flex flex-col bg-white overflow-y-auto custom-scrollbar">
                 <div className="flex flex-col justify-center space-y-4">
                   <div className="space-y-2">
                     <div className="text-xs text-zinc-500">
                       MANIFEST PARAMETERS
                     </div>
-                    <p className="text-sm font-normal text-zinc-300">
+                    <p className="text-sm font-normal text-slate-900 leading-relaxed">
                       {selectedImage.prompt}
                     </p>
                   </div>
@@ -172,7 +172,7 @@ export default function CreationsPage() {
                       </div>
                       <div className="space-y-1.5">
                         <div className="text-[9px] font-semibold text-zinc-600 uppercase tracking-widest">Resolution</div>
-                        <div className="text-xs text-zinc-300">{selectedImage.resolution || "1k"}</div>
+                        <div className="text-xs text-slate-900 font-medium">{selectedImage.resolution || "1k"}</div>
                       </div>
                     </div>
                     
@@ -199,7 +199,7 @@ export default function CreationsPage() {
                       setDownloading(false);
                     }}
                     disabled={downloading}
-                    className="w-full py-3 bg-white text-black rounded-lg font-semibold text-sm flex items-center justify-center gap-3 transition-all hover:bg-zinc-200 disabled:opacity-50"
+                    className="w-full py-3 bg-slate-900 text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-3 transition-all hover:bg-black disabled:opacity-50 shadow-xl"
                   >
                     {downloading ? (
                       <div className="w-3 h-3 border-2 border-black border-t-transparent rounded-full animate-spin" />

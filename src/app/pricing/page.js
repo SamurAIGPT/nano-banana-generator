@@ -76,15 +76,15 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="flex-1 bg-black overflow-y-auto custom-scrollbar p-8 md:p-12">
+    <div className="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-8 md:p-12">
       <header className="max-w-7xl mx-auto mb-16 text-center space-y-4">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-semibold tracking-[0.4em] uppercase">
           Fuel your manifestation
         </div>
-        <h1 className="text-4xl md:text-5xl font-semibold tracking-tight leading-tight">
+        <h1 className="text-4xl md:text-5xl font-semibold tracking-tight leading-tight text-slate-900">
           CREDIT TIERS
         </h1>
-        <p className="text-zinc-500 font-medium text-xs uppercase tracking-widest max-w-xl mx-auto leading-loose">
+        <p className="text-zinc-400 font-medium text-xs uppercase tracking-widest max-w-xl mx-auto leading-loose">
           Unlock higher fidelity, faster polling, and permanent storage. <br />
           Choose your kinetic energy.
         </p>
@@ -99,8 +99,8 @@ export default function PricingPage() {
             transition={{ delay: index * 0.1 }}
             className={`relative p-8 rounded-2xl border transition-all flex flex-col ${
               tier.highlight
-                ? "bg-white/5 border-indigo-500 shadow-xl"
-                : "bg-white/[0.02] border-white/5"
+                ? "bg-white border-indigo-500 shadow-xl"
+                : "bg-white border-slate-200 shadow-sm"
             }`}
           >
             {tier.highlight && (
@@ -110,31 +110,31 @@ export default function PricingPage() {
             )}
 
             <div className="mb-6">
-              <h3 className="text-lg font-semibold tracking-tight mb-2">
+              <h3 className="text-lg font-semibold tracking-tight mb-2 text-slate-900">
                 {tier.name}
               </h3>
-              <p className="text-xs text-zinc-500 font-medium leading-relaxed">
+              <p className="text-xs text-zinc-400 font-medium leading-relaxed">
                 {tier.description}
               </p>
             </div>
 
             <div className="mb-8 flex items-end gap-1">
-              <span className="text-4xl font-semibold tracking-tight">
+              <span className="text-4xl font-semibold tracking-tight text-slate-900">
                 ${tier.price}
               </span>
-              <span className="text-xs font-medium text-zinc-600 mb-1.5 uppercase tracking-widest">
+              <span className="text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-widest">
                 / Month
               </span>
             </div>
 
             <div className="flex-1 space-y-4 mb-8">
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5">
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
                 <FaCoins className="text-yellow-500 text-lg" />
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest leading-none mb-1">
+                  <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest leading-none mb-1">
                     Yields
                   </span>
-                  <span className="text-lg font-semibold">
+                  <span className="text-lg font-semibold text-slate-900">
                     {tier.credits} CREDITS
                   </span>
                 </div>
@@ -144,7 +144,7 @@ export default function PricingPage() {
                 {tier.features.map((feat) => (
                   <li
                     key={feat}
-                    className="flex items-center gap-3 text-xs font-medium text-zinc-400"
+                    className="flex items-center gap-3 text-xs font-medium text-slate-600"
                   >
                     <FaCheckCircle className="text-indigo-500 shrink-0" />
                     {feat}
@@ -160,8 +160,8 @@ export default function PricingPage() {
               disabled={loadingTier === tier.name}
               className={`w-full h-12 rounded-xl font-semibold text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${
                 tier.highlight
-                  ? "bg-white text-black hover:scale-[1.01]"
-                  : "bg-white/5 border border-white/10 hover:bg-white/10"
+                  ? "bg-slate-900 text-white hover:bg-black shadow-lg shadow-indigo-500/20"
+                  : "bg-slate-100 border border-slate-200 text-slate-900 hover:bg-slate-200"
               } disabled:opacity-20`}
             >
               {loadingTier === tier.name ? (
@@ -171,7 +171,7 @@ export default function PricingPage() {
                   Purchase Credits{" "}
                   <FaBolt
                     className={
-                      tier.highlight ? "text-indigo-500" : "text-zinc-700"
+                      tier.highlight ? "text-indigo-500" : "text-zinc-400"
                     }
                   />
                 </>
@@ -184,7 +184,7 @@ export default function PricingPage() {
       {/* Credit Counter Hook */}
       <footer className="max-w-7xl mx-auto py-12 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-8">
         <div className="space-y-2 text-center md:text-left">
-          <div className="text-[10px] font-semibold tracking-[0.4em] text-zinc-700 uppercase">
+          <div className="text-[10px] font-semibold tracking-[0.4em] text-zinc-500 uppercase">
             Kinetic Stats
           </div>
           <div className="text-lg font-medium flex items-center gap-3">
@@ -194,7 +194,7 @@ export default function PricingPage() {
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-4 text-zinc-600 text-[10px] font-semibold uppercase tracking-widest">
+        <div className="flex items-center gap-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-widest">
           <FaStar className="text-yellow-500/30" /> Secure Encryption via Stripe{" "}
           <FaStar className="text-yellow-500/30" />
         </div>

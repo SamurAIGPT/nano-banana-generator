@@ -231,24 +231,24 @@ export default function Home() {
 
   return (
     <div className="flex flex-1 h-full w-full">
-      <aside className="w-80 md:w-96 border-r border-white/5 bg-[#08080a] flex flex-col shrink-0 h-full overflow-y-auto custom-scrollbar">
-        <div className="p-6 border-b border-white/5 space-y-6">
+      <aside className="w-80 md:w-96 border-r border-slate-200 bg-white flex flex-col shrink-0 h-full overflow-y-auto custom-scrollbar">
+        <div className="p-6 border-b border-slate-200 space-y-6">
           <div className="flex flex-col gap-2">
             <h2 className="text-lg font-semibold tracking-tight">
               ENGINE CORE
             </h2>
-            <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-[0.2em]">
+            <p className="text-[10px] text-slate-500 font-medium uppercase tracking-[0.2em]">
               Variable Kinetic Input
             </p>
           </div>
 
-          <div className="flex p-1 bg-white/[0.02] rounded-lg border border-white/5">
+          <div className="flex p-1 bg-slate-100 rounded-lg border border-slate-200">
             <button
               onClick={() => setMode("generate")}
               className={`flex-1 py-2 rounded-md text-[10px] font-semibold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                 mode === "generate"
-                  ? "bg-white text-black shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-900"
               }`}
             >
               <FaMagic className="text-xs" /> Generate
@@ -257,8 +257,8 @@ export default function Home() {
               onClick={() => setMode("edit")}
               className={`flex-1 py-2 rounded-md text-[10px] font-semibold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                 mode === "edit"
-                  ? "bg-white text-black shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-900"
               }`}
             >
               <FaSyncAlt className="text-xs" /> Edit
@@ -268,7 +268,7 @@ export default function Home() {
         <div className="flex-1 custom-scrollbar p-6 space-y-4">
           {/* Prompt Section */}
           <div className="space-y-2">
-            <label className="text-xs font-medium text-zinc-200 flex items-center gap-2">
+            <label className="text-xs font-medium text-slate-700 flex items-center gap-2">
               <div className="w-1 h-1 bg-indigo-500 rounded-full" />{" "}
               {mode === "generate" ? "Prompt" : "Edit Prompt"}
             </label>
@@ -280,7 +280,7 @@ export default function Home() {
                   ? "A cybernetic banana floating in space..."
                   : "Change the color of the banana to neon blue..."
               }
-              className="w-full h-32 bg-white/[0.02] border border-white/5 rounded-lg p-4 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/30 resize-none transition-all placeholder:text-zinc-800"
+              className="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none transition-all placeholder:text-slate-400 text-slate-900"
             />
           </div>
 
@@ -303,7 +303,7 @@ export default function Home() {
                     value={newImageUrl}
                     onChange={(e) => setNewImageUrl(e.target.value)}
                     placeholder="Image URL..."
-                    className="flex-1 bg-white/[0.02] border border-white/5 rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-indigo-500/50"
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-indigo-500/50 text-slate-900"
                   />
                   <input
                     type="file"
@@ -327,7 +327,7 @@ export default function Home() {
                   <button
                     onClick={addImageToList}
                     disabled={!newImageUrl || imagesList.length >= 14}
-                    className="w-10 h-10 bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 rounded-lg flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all"
+                    className="w-10 h-10 bg-indigo-50 border border-indigo-100 text-indigo-500 rounded-lg flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-all shadow-sm"
                     title="Add URL"
                   >
                     <FaPlus />
@@ -363,7 +363,7 @@ export default function Home() {
             <div className="relative">
               <button
                 onClick={() => setIsRatioOpen(!isRatioOpen)}
-                className="w-full flex items-center justify-between p-3 bg-white/[0.02] border border-white/5 rounded-lg text-xs font-semibold hover:border-white/10 transition-all outline-none"
+                className="w-full flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold hover:border-slate-300 transition-all outline-none text-slate-900"
               >
                 <div className="flex items-center gap-3">
                   <FaExpand className="text-indigo-500" />
@@ -380,7 +380,7 @@ export default function Home() {
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 5 }}
-                    className="absolute top-12 left-0 right-0 max-h-60 bg-[#121214] border border-white/10 rounded-lg overflow-y-auto custom-scrollbar shadow-xl z-50 p-1"
+                    className="absolute top-12 left-0 right-0 max-h-60 bg-white border border-slate-200 rounded-lg overflow-y-auto custom-scrollbar shadow-2xl z-50 p-1"
                   >
                     {ASPECT_RATIOS.map((ratio) => (
                       <button
@@ -392,7 +392,7 @@ export default function Home() {
                         className={`w-full text-left p-3 rounded-lg text-[10px] font-bold transition-all flex items-center gap-3 ${
                           aspectRatio.value === ratio.value
                             ? "bg-indigo-500 text-white"
-                            : "text-zinc-500 hover:bg-white/5 hover:text-white"
+                            : "text-zinc-400 hover:bg-white/5 hover:text-white"
                         }`}
                       >
                         <div
@@ -419,15 +419,15 @@ export default function Home() {
                   onClick={() => setResolution(res)}
                   className={`flex-1 flex flex-col items-center py-3 rounded-lg border-2 transition-all ${
                     resolution.value === res.value
-                      ? "bg-indigo-500 border-white/20 text-white shadow-sm"
-                      : "bg-white/[0.01] border-white/5 text-zinc-600 hover:border-white/10"
+                      ? "bg-slate-900 border-slate-900 text-white shadow-sm"
+                      : "bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300"
                   }`}
                 >
                   <span className="text-sm font-semibold tracking-tight">
                     {res.value}
                   </span>
                   <span
-                    className={`text-xs font-medium mt-1 ${resolution.value === res.value ? "text-white/60" : "text-zinc-700"}`}
+                    className={`text-xs font-medium mt-1 ${resolution.value === res.value ? "text-white/60" : "text-slate-400"}`}
                   >
                     {res.cost} Credits
                   </span>
@@ -446,8 +446,8 @@ export default function Home() {
               onClick={() => setGoogleSearch(!googleSearch)}
               className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
                 googleSearch
-                  ? "bg-indigo-500 border-white/20 text-white"
-                  : "bg-white/[0.01] border-white/5 text-zinc-400 hover:border-white/10"
+                  ? "bg-indigo-500 border-indigo-400 text-white shadow-md"
+                  : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-white"
               }`}
             >
               <div className="flex items-center gap-3">
@@ -459,17 +459,17 @@ export default function Home() {
                 </span>
               </div>
               <div
-                className={`w-8 h-4 rounded-full relative p-1 transition-colors ${googleSearch ? "bg-white/20" : "bg-zinc-800"}`}
+                className={`w-8 h-4 rounded-full relative p-1 transition-colors ${googleSearch ? "bg-white/30" : "bg-slate-200"}`}
               >
                 <motion.div
                   animate={{ x: googleSearch ? 14 : 0 }}
-                  className="w-2 h-2 rounded-full bg-white"
+                  className="w-2 h-2 rounded-full bg-white shadow-sm"
                 />
               </div>
             </button>
           </div>
         </div>
-        <div className="p-6 border-t border-white/[0.03] bg-[#08080a]">
+        <div className="p-6 border-t border-slate-200 bg-white">
           <button
             onClick={handleGenerate}
             disabled={
@@ -477,12 +477,12 @@ export default function Home() {
               (mode === "generate" && !prompt.trim()) ||
               (mode === "edit" && imagesList.length === 0)
             }
-            className="w-full bg-white text-black rounded-lg py-3 font-semibold text-sm flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-20 shadow-lg"
+            className="w-full bg-slate-900 text-white rounded-lg py-3 font-semibold text-sm flex items-center justify-center gap-3 transition-all hover:bg-black active:scale-[0.99] disabled:opacity-20 shadow-lg"
           >
             {loading ? (
-              <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-4 h-4 border-2 border-slate-500 border-t-white rounded-full animate-spin"></div>
             ) : (
-              <FaBolt className="text-indigo-500" />
+              <FaBolt className="text-yellow-400" />
             )}
             {loading ? "PROCESSING..." : `Generate ${resolution.cost} Credits`}
           </button>
@@ -490,10 +490,10 @@ export default function Home() {
       </aside>
 
       {/* Main Canvas */}
-      <main className="flex-1 relative flex flex-col bg-black overflow-hidden">
+      <main className="flex-1 relative flex flex-col bg-slate-50 overflow-hidden">
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-[50%] h-[50%] bg-indigo-500/5 rounded-full blur-[120px] animate-pulse" />
-          <div className="absolute bottom-1/4 right-1/4 w-[40%] h-[40%] bg-purple-500/5 rounded-full blur-[100px]" />
+          <div className="absolute top-1/4 left-1/4 w-[50%] h-[50%] bg-indigo-500/10 rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-[40%] h-[40%] bg-purple-500/10 rounded-full blur-[100px]" />
         </div>
 
         <div className="flex-1 relative z-10 p-12 overflow-y-auto flex items-center justify-center custom-scrollbar">
@@ -507,17 +507,17 @@ export default function Home() {
               >
                 <div className="relative w-28 h-28 mx-auto group">
                   <div className="absolute inset-0 bg-indigo-500/10 blur-[30px] rounded-full" />
-                  <div className="relative w-full h-full bg-white/[0.02] border border-white/[0.05] rounded-3xl flex items-center justify-center transition-transform duration-700 group-hover:rotate-12">
-                    <FaMagic className="text-3xl text-zinc-900" />
+                  <div className="relative w-full h-full bg-white border border-slate-200 rounded-3xl flex items-center justify-center shadow-sm transition-transform duration-700 group-hover:rotate-12">
+                    <FaMagic className="text-3xl text-slate-200" />
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <h2 className="text-xl font-semibold tracking-tight uppercase">
+                  <h2 className="text-xl font-semibold tracking-tight uppercase text-slate-900">
                     {mode === "generate"
                       ? "Engine Standby."
                       : "Reconfiguration Ready."}
                   </h2>
-                  <p className="text-zinc-500 font-medium text-[10px] uppercase tracking-widest leading-loose">
+                  <p className="text-slate-500 font-medium text-[10px] uppercase tracking-widest leading-loose">
                     {mode === "generate"
                       ? "Submit text parameters to manifest pixels."
                       : "Add visual nodes and adjust directives to edit."}
@@ -548,10 +548,10 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="text-center space-y-4">
-                  <div className="text-2xl font-black italic uppercase animate-pulse">
+                  <div className="text-2xl font-black italic uppercase animate-pulse text-slate-900">
                     {statusMessage}
                   </div>
-                  <div className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/5 text-indigo-500/50 text-[9px] font-black uppercase tracking-widest">
+                  <div className="inline-block px-4 py-1.5 rounded-full bg-indigo-50 text-indigo-500 text-[9px] font-black uppercase tracking-widest">
                     ESTIMATED EXTRACTION: 120.0s
                   </div>
                 </div>
@@ -568,7 +568,7 @@ export default function Home() {
                 <div className="text-red-500 font-black uppercase tracking-[0.4em] text-[10px]">
                   Processing Error
                 </div>
-                <p className="text-zinc-500 text-xs font-bold leading-loose text-center">
+                <p className="text-zinc-400 text-xs font-bold leading-loose text-center">
                   {typeof error === "string"
                     ? error
                     : "Verification failed. Check credits."}
@@ -591,10 +591,10 @@ export default function Home() {
                         {prompt || "Result Manifest"}
                       </h3>
                       <div className="flex gap-3">
-                        <div className="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-xl text-[10px] font-semibold">
+                        <div className="px-3 py-1.5 rounded-lg bg-white/20 backdrop-blur-3xl text-[10px] font-semibold text-white">
                           {aspectRatio.label}
                         </div>
-                        <div className="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-xl text-[10px] font-semibold uppercase">
+                        <div className="px-3 py-1.5 rounded-lg bg-white/20 backdrop-blur-3xl text-[10px] font-semibold text-white uppercase">
                           {resolution.value}
                         </div>
                       </div>
@@ -630,16 +630,16 @@ export default function Home() {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #4c4c4fff;
+          background: #cbd5e1;
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #626266ff;
+          background: #94a3b8;
           border-radius: 10px;
         }
         .custom-scrollbar {
           scrollbar-width: thin;
-          scrollbar-color: #4c4c4fff transparent;
+          scrollbar-color: #cbd5e1 transparent;
         }
       `}</style>
     </div>
