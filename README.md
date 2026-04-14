@@ -1,6 +1,8 @@
-# 🚀 Modular SaaS Template Engine
+# 🚀 Nano Banana Generator
 
-This is a **high-performance, modular SaaS starter kit** designed for single-click Vercel deployments. It decouples core business logic (Auth, Payments, Credits) from the UI, allowing you to build and ship multiple templates rapidly.
+**Live Demo:** [https://nano-banana-generate-eta.vercel.app](https://nano-banana-generate-eta.vercel.app)
+
+This is a **high-performance, modular AI generation engine** designed for single-click Vercel deployments. It decouples core business logic (Auth, Payments, Credits) from the UI, allowing you to build and ship multiple AI templates rapidly.
 
 ## 🛠️ Modular Architecture
 
