@@ -47,18 +47,18 @@ Deploying an instance of Nano Banana Generator to the web requires minimal confi
 
 To successfully deploy and run, you must populate the following environment variables in your Vercel project settings:
 
-| Service               | Variable                             | Description                                                  |
-| :-------------------- | :----------------------------------- | :----------------------------------------------------------- |
-| **Database**          | `DATABASE_URL`                       | PostgreSQL connection string (Supabase or Neon recommended)  |
-|                       | `DIRECT_URL`                         | Direct DB connection for Prisma migrations                   |
-| **NextAuth / Google** | `NEXTAUTH_SECRET`                    | Secure random string generated via `openssl rand -base64 32` |
-|                       | `NEXTAUTH_URL`                       | Your production domain (e.g. `https://my-app.vercel.app`)    |
-|                       | `GOOGLE_CLIENT_ID`                   | Google Cloud Console OAuth 2.0 Client ID                     |
-|                       | `GOOGLE_CLIENT_SECRET`               | Google Cloud Console OAuth 2.0 Client Secret                 |
-| **Stripe Billing**    | `STRIPE_SECRET_KEY`                  | Stripe secret key (starting with `sk_live_` or `sk_test_`)   |
-|                       | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe public key (`pk_live_` or `pk_test_`)                 |
-|                       | `STRIPE_WEBHOOK_SECRET`              | Webhook secret for resolving credit purchases                |
-| **AI Generator**      | `NANO_BANANA_API_KEY`                | API Key for the underlying generative AI engine route        |
+| Service               | Variable                             | Description & Source                                                                         |
+| :-------------------- | :----------------------------------- | :------------------------------------------------------------------------------------------- |
+| **Database**          | `DATABASE_URL`                       | PostgreSQL connection string ([Supabase](https://supabase.com) or [Neon](https://neon.tech)) |
+|                       | `DIRECT_URL`                         | Direct DB connection for Prisma migrations                                                   |
+| **NextAuth / Google** | `NEXTAUTH_SECRET`                    | Secure random string generated via `openssl rand -base64 32`                                 |
+|                       | `NEXTAUTH_URL`                       | Your production domain (e.g. `https://my-app.vercel.app`)                                    |
+|                       | `GOOGLE_CLIENT_ID`                   | Get from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)           |
+|                       | `GOOGLE_CLIENT_SECRET`               | Get from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)           |
+| **Stripe Billing**    | `STRIPE_SECRET_KEY`                  | Get from [Stripe Dashboard](https://dashboard.stripe.com/apikeys)                            |
+|                       | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Get from [Stripe Dashboard](https://dashboard.stripe.com/apikeys)                            |
+|                       | `STRIPE_WEBHOOK_SECRET`              | Webhook secret for resolving credit purchases                                                |
+| **AI Generator**      | `NANO_BANANA_API_KEY`                | Create an account and get key from [muapi.ai/access-keys](https://muapi.ai/access-keys)      |
 
 ### 🚀 Launching on Vercel: Step-by-Step
 
