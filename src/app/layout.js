@@ -11,9 +11,11 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+  const theme = process.env.NEXT_PUBLIC_THEME || 'indigo';
+
   return (
-    <html lang="en" className="light h-dvh w-full">
-      <body className={`${font.className} h-dvh w-full flex flex-col bg-slate-50 text-slate-900 antialiased`}>
+    <html lang="en" className="h-dvh w-full transition-colors duration-500" data-theme={theme} style={{ colorScheme: 'light' }}>
+      <body className={`${font.className} h-dvh w-full flex flex-col antialiased transition-colors duration-500`}>
         <Providers>
           <Navbar />
           <div className="flex-1 flex flex-col overflow-hidden">
