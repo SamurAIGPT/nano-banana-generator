@@ -31,7 +31,8 @@ export const AIService = {
     const apiKey = config.ai.banana.apiKey;
     if (!apiKey) throw new Error("NANO_BANANA_API_KEY is not configured");
 
-    const submitUrl = "https://api.muapi.ai/api/v1/nano-banana-2";
+    const webhookUrl = `${config.auth.webhook_url}/api/webhook/muapi`;
+    const submitUrl = `https://api.muapi.ai/api/v1/nano-banana-2?webhook=${encodeURIComponent(webhookUrl)}`;
     const submitRes = await fetch(submitUrl, {
       method: "POST",
       headers: {
@@ -55,6 +56,20 @@ export const AIService = {
     const { request_id } = await submitRes.json();
     if (!request_id) throw new Error("No request_id received from API");
 
+    const creationModel = prisma.creation || prisma.Creation;
+    if (creationModel) {
+      await creationModel.create({
+        data: {
+          userId,
+          prompt,
+          aspectRatio: aspect_ratio,
+          resolution,
+          requestId: request_id,
+          status: "processing",
+        }
+      });
+    }
+
     return { request_id };
   },
 
@@ -68,7 +83,8 @@ export const AIService = {
     const apiKey = config.ai.banana.apiKey;
     if (!apiKey) throw new Error("NANO_BANANA_API_KEY is not configured");
 
-    const submitUrl = "https://api.muapi.ai/api/v1/nano-banana-2-edit";
+    const webhookUrl = `${config.auth.webhook_url}/api/webhook/muapi`;
+    const submitUrl = `https://api.muapi.ai/api/v1/nano-banana-2-edit?webhook=${encodeURIComponent(webhookUrl)}`;
     const submitRes = await fetch(submitUrl, {
       method: "POST",
       headers: {
@@ -92,6 +108,20 @@ export const AIService = {
     const { request_id } = await submitRes.json();
     if (!request_id) throw new Error("No request_id received from API");
 
+    const creationModel = prisma.creation || prisma.Creation;
+    if (creationModel) {
+      await creationModel.create({
+        data: {
+          userId,
+          prompt,
+          aspectRatio: aspect_ratio,
+          resolution,
+          requestId: request_id,
+          status: "processing",
+        }
+      });
+    }
+
     return { request_id };
   },
 
@@ -99,41 +129,23 @@ export const AIService = {
    * Check status of a request and save to DB on completion
    */
   async checkStatus(requestId, userId, metadata) {
-    const apiKey = config.ai.banana.apiKey;
-    const resultUrl = `https://api.muapi.ai/api/v1/predictions/${requestId}/result`;
+    const creationModel = prisma.creation || prisma.Creation;
+    if (!creationModel) return { status: "processing" };
 
-    const pollRes = await fetch(resultUrl, {
-      headers: { "x-api-key": apiKey },
+    const creation = await creationModel.findUnique({
+      where: { requestId }
     });
 
-    if (!pollRes.ok) {
-      throw new Error(`Status check failed: ${pollRes.status}`);
+    if (!creation) {
+      return { status: "processing" };
     }
 
-    const result = await pollRes.json();
-    const { status, outputs, error } = result;
-
-    if (status === "completed") {
-      const imageUrl = outputs[0];
-
-      const creationModel = prisma.creation || prisma.Creation;
-      if (creationModel) {
-        await creationModel.create({
-          data: {
-            userId,
-            prompt: metadata.prompt || "",
-            imageUrl,
-            aspectRatio: metadata.aspect_ratio || "1:1",
-            resolution: metadata.resolution || "1k",
-          }
-        });
-      }
-
-      return { status: "completed", imageUrl };
+    if (creation.status === "completed") {
+      return { status: "completed", imageUrl: creation.imageUrl };
     }
 
-    if (status === "failed") {
-      throw new Error(error || "Generation failed.");
+    if (creation.status === "failed") {
+      throw new Error(creation.error || "Generation failed.");
     }
 
     return { status: "processing" };

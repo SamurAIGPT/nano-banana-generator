@@ -11,6 +11,7 @@ const config = {
     },
     secret: process.env.NEXTAUTH_SECRET,
     url: process.env.NEXTAUTH_URL || "http://localhost:3000",
+    webhook_url: process.env.WEBHOOK_URL || process.env.NEXTAUTH_URL || "http://localhost:3000",
   },
   stripe: {
     publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
