@@ -141,7 +141,7 @@ export function Navbar() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-20 left-0 right-0 bg-glass-bg border-b border-glass-border shadow-2xl flex flex-col md:hidden z-50 p-4 gap-2"
+            className="absolute top-20 left-0 right-0 bg-[var(--solid-bg)]/90 backdrop-blur-2xl border-b border-glass-border shadow-2xl flex flex-col md:hidden z-50 p-4 gap-2"
           >
             {navLinks.map((link) => {
               if (!session && link.href === "/creations") return null;
