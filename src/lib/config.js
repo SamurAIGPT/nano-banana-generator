@@ -31,7 +31,8 @@ const config = {
       apiKey: process.env.NANO_BANANA_API_KEY,
     },
     comfy: {
-      submitUrl: process.env.COMFY_SUBMIT_URL,
+      serverUrl: process.env.COMFY_SERVER_URL,
+      workflow: process.env.COMFY_WORKFLOW_JSON,
     }
   },
   db: {

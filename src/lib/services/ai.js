@@ -3,10 +3,7 @@ import { UserService } from "./user";
 import { prisma } from "@/lib/prisma";
 
 /**
- * Service to manage AI generations and interactions.
- */
-/**
- * Service to manage AI generations and interactions.
+ * ComfyUI integration for image generation
  */
 export const AIService = {
   /**
@@ -22,291 +19,269 @@ export const AIService = {
   },
 
   /**
-   * Execute a generation quest using muapi.ai
+   * Get resolution dimensions based on aspect ratio
    */
-  async generate(userId, { prompt, aspect_ratio = "1:1", resolution = "1k", google_search = false }) {
-    const cost = this.getCreditCost(resolution);
-    await UserService.deductCredits(userId, cost);
+  getResolutionDimensions(resolution, aspectRatio) {
+    const baseSize = {
+      "1k": 512,
+      "2k": 768,
+      "4k": 1024,
+    }[resolution] || 512;
 
-    const comfyUrl = config.ai?.comfy?.submitUrl;
-    if (comfyUrl) {
-      // Try synchronous submission to local ComfyUI endpoint
-      const submitRes = await fetch(comfyUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt,
-          aspect_ratio,
-          resolution,
-          google_search,
-        }),
-      });
+    const [w, h] = aspectRatio.split(":").map(Number);
+    const ratio = w / h;
 
-      if (!submitRes.ok) {
-        const errorText = await submitRes.text();
-        throw new Error(`Comfy submission failed: ${submitRes.status} ${errorText}`);
-      }
-
-      let submitJson = null;
-      try { submitJson = await submitRes.json(); } catch (e) { submitJson = null; }
-      const request_id = submitJson?.request_id || submitJson?.id || null;
-      const imageUrl = submitJson?.imageUrl || submitJson?.url || submitJson?.output || submitJson?.image || (submitJson?.data && submitJson.data.url) || null;
-      const creationModel = prisma.creation || prisma.Creation;
-      if (imageUrl && creationModel) {
-        await creationModel.create({
-          data: {
-            userId,
-            prompt,
-            aspectRatio: aspect_ratio,
-            resolution,
-            requestId: request_id,
-            status: "completed",
-            imageUrl,
-          }
-        });
-        return { request_id, imageUrl };
-      } else if (request_id && creationModel) {
-        await creationModel.create({
-          data: {
-            userId,
-            prompt,
-            aspectRatio: aspect_ratio,
-            resolution,
-            requestId: request_id,
-            status: "processing",
-          }
-        });
-        return { request_id };
-      }
-      // If comfy didn't return a usable result, fallthrough to existing provider logic
+    let width, height;
+    if (ratio >= 1) {
+      width = baseSize;
+      height = Math.round(baseSize / ratio);
+    } else {
+      height = baseSize;
+      width = Math.round(baseSize * ratio);
     }
 
-    const apiKey = config.ai.banana.apiKey;
-    if (!apiKey) throw new Error("NANO_BANANA_API_KEY is not configured");
-
-    const webhookUrl = `${config.auth.webhook_url}/api/webhook/muapi`;
-    const submitUrl = `https://api.muapi.ai/api/v1/nano-banana-2?webhook=${encodeURIComponent(webhookUrl)}`;
-    const submitRes = await fetch(submitUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        prompt,
-        aspect_ratio,
-        resolution,
-        google_search,
-        output_format: "jpg",
-      }),
-    });
-
-    if (!submitRes.ok) {
-      const errorText = await submitRes.text();
-      throw new Error(`API Submission Failed: ${submitRes.status} ${errorText}`);
-    }
-
-    const { request_id } = await submitRes.json();
-    if (!request_id) throw new Error("No request_id received from API");
-
-    const creationModel = prisma.creation || prisma.Creation;
-    if (creationModel) {
-      await creationModel.create({
-        data: {
-          userId,
-          prompt,
-          aspectRatio: aspect_ratio,
-          resolution,
-          requestId: request_id,
-          status: "processing",
-        }
-      });
-    }
-
-    return { request_id };
+    return { width, height };
   },
 
   /**
-   * Execute an edit quest using muapi.ai
+   * Load and customize ComfyUI workflow from environment config
    */
-  async edit(userId, { prompt, images_list = [], aspect_ratio = "Auto", google_search = false, resolution = "1k" }) {
-    const cost = this.getCreditCost(resolution);
-    await UserService.deductCredits(userId, cost);
-
-    const comfyUrl = config.ai?.comfy?.submitUrl;
-    if (comfyUrl) {
-      // Try synchronous submission to local ComfyUI endpoint for edits
-      const submitRes = await fetch(comfyUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt,
-          images_list,
-          aspect_ratio,
-          google_search,
-          resolution,
-        }),
-      });
-
-      if (!submitRes.ok) {
-        const errorText = await submitRes.text();
-        throw new Error(`Comfy submission failed: ${submitRes.status} ${errorText}`);
-      }
-
-      let submitJson = null;
-      try { submitJson = await submitRes.json(); } catch (e) { submitJson = null; }
-      const request_id = submitJson?.request_id || submitJson?.id || null;
-      const imageUrl = submitJson?.imageUrl || submitJson?.url || submitJson?.output || submitJson?.image || (submitJson?.data && submitJson.data.url) || null;
-      const creationModel = prisma.creation || prisma.Creation;
-      if (imageUrl && creationModel) {
-        await creationModel.create({
-          data: {
-            userId,
-            prompt,
-            aspectRatio: aspect_ratio,
-            resolution,
-            requestId: request_id,
-            status: "completed",
-            imageUrl,
-          }
-        });
-        return { request_id, imageUrl };
-      } else if (request_id && creationModel) {
-        await creationModel.create({
-          data: {
-            userId,
-            prompt,
-            aspectRatio: aspect_ratio,
-            resolution,
-            requestId: request_id,
-            status: "processing",
-          }
-        });
-        return { request_id };
-      }
-      // fallthrough to existing provider if needed
+  async loadComfyWorkflow(prompt, negativePrompt, params = {}) {
+    const workflowJson = config.ai?.comfy?.workflow;
+    if (!workflowJson) {
+      throw new Error("ComfyUI workflow not configured");
     }
 
-    const apiKey = config.ai.banana.apiKey;
-    if (!apiKey) throw new Error("NANO_BANANA_API_KEY is not configured");
-
-    const webhookUrl = `${config.auth.webhook_url}/api/webhook/muapi`;
-    const submitUrl = `https://api.muapi.ai/api/v1/nano-banana-2-edit?webhook=${encodeURIComponent(webhookUrl)}`;
-    const submitRes = await fetch(submitUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        prompt,
-        images_list,
-        aspect_ratio,
-        google_search,
-        resolution,
-      }),
-    });
-
-    if (!submitRes.ok) {
-      const errorText = await submitRes.text();
-      throw new Error(`API Submission Failed: ${submitRes.status} ${errorText}`);
+    let workflow;
+    try {
+      workflow = typeof workflowJson === "string" ? JSON.parse(workflowJson) : workflowJson;
+    } catch (err) {
+      console.error("Failed to parse workflow JSON:", err);
+      throw new Error("Invalid ComfyUI workflow JSON");
     }
 
-    const { request_id } = await submitRes.json();
-    if (!request_id) throw new Error("No request_id received from API");
-
-    const creationModel = prisma.creation || prisma.Creation;
-    if (creationModel) {
-      await creationModel.create({
-        data: {
-          userId,
-          prompt,
-          aspectRatio: aspect_ratio,
-          resolution,
-          requestId: request_id,
-          status: "processing",
-        }
-      });
+    // Update positive prompt (usually node 6)
+    if (workflow["6"]) {
+      workflow["6"]["inputs"]["text"] = prompt;
     }
 
-    return { request_id };
+    // Update negative prompt (usually node 7)
+    if (workflow["7"]) {
+      workflow["7"]["inputs"]["text"] = negativePrompt;
+    }
+
+    // Update KSampler node (node 3) with generation parameters
+    if (workflow["3"]) {
+      workflow["3"]["inputs"]["seed"] = params.seed || Math.floor(Math.random() * 1000000000);
+      workflow["3"]["inputs"]["steps"] = params.steps || 20;
+      workflow["3"]["inputs"]["cfg"] = params.cfg || 7;
+      workflow["3"]["inputs"]["sampler_name"] = params.sampler || "euler";
+      workflow["3"]["inputs"]["scheduler"] = params.scheduler || "karras";
+      workflow["3"]["inputs"]["denoise"] = 1.0; // Always 1.0 for text-to-image
+    }
+
+    // Update latent image dimensions (node 5)
+    if (workflow["5"]) {
+      workflow["5"]["inputs"]["width"] = params.width || 512;
+      workflow["5"]["inputs"]["height"] = params.height || 512;
+      workflow["5"]["inputs"]["batch_size"] = 1; // Single image
+    }
+
+    return workflow;
   },
 
   /**
-   * Check status of a request and save to DB on completion
+   * Submit workflow to ComfyUI and get prompt ID
+   */
+  async submitComfyWorkflow(workflow, comfyServerUrl) {
+    const payload = { prompt: workflow };
+    const response = await fetch(`${comfyServerUrl}/prompt`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`ComfyUI submission failed: ${response.status} ${text}`);
+    }
+
+    const data = await response.json();
+    if (!data.prompt_id) {
+      throw new Error("ComfyUI did not return a prompt_id");
+    }
+    return data.prompt_id;
+  },
+
+  /**
+   * Poll ComfyUI history to check generation status and retrieve image URL
+   */
+  async pollComfyStatus(promptId, comfyServerUrl, maxAttempts = 120) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const response = await fetch(`${comfyServerUrl}/history/${promptId}`);
+        if (!response.ok) {
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
+        }
+
+        const history = await response.json();
+        if (!history[promptId]) {
+          // Prompt not yet in history, keep polling
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
+        }
+
+        const execution = history[promptId];
+
+        // Check if execution completed
+        if (execution.outputs && execution.status && execution.status.exec_info === "execution completed") {
+          // Extract images from SaveImage node (usually node 9)
+          const images = execution.outputs[9]?.images || [];
+          if (images.length > 0) {
+            const img = images[0];
+            return {
+              status: "completed",
+              imageFilename: img.filename,
+              imageSubfolder: img.subfolder || "outputs",
+            };
+          }
+        }
+
+        // Still processing, wait and retry
+        await new Promise(r => setTimeout(r, 2000));
+      } catch (err) {
+        console.error("Poll error:", err);
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+
+    throw new Error("ComfyUI generation timeout after 4 minutes");
+  },
+
+  /**
+   * Get image URL from ComfyUI server
+   */
+  getComfyImageUrl(comfyServerUrl, filename, subfolder = "outputs") {
+    // ComfyUI /view endpoint returns the image directly
+    return `${comfyServerUrl}/view?filename=${encodeURIComponent(filename)}&subfolder=${encodeURIComponent(subfolder)}`;
+  },
+
+  /**
+   * Execute a generation quest using ComfyUI with workflow
+   */
+  async generate(userId, { prompt, negativePrompt = "", aspect_ratio = "1:1", resolution = "1k", steps = 20, cfg = 7, sampler = "euler", scheduler = "karras" }) {
+    const cost = this.getCreditCost(resolution);
+    await UserService.deductCredits(userId, cost);
+
+    const comfyServerUrl = config.ai?.comfy?.serverUrl;
+    if (!comfyServerUrl) {
+      throw new Error("ComfyUI server URL not configured (COMFY_SERVER_URL)");
+    }
+
+    try {
+      // Calculate resolution dimensions from aspect ratio
+      const { width, height } = this.getResolutionDimensions(resolution, aspect_ratio);
+
+      // Load and customize workflow
+      const workflow = await this.loadComfyWorkflow(prompt, negativePrompt, {
+        steps,
+        cfg,
+        sampler,
+        scheduler,
+        width,
+        height,
+      });
+
+      // Submit workflow to ComfyUI
+      const promptId = await this.submitComfyWorkflow(workflow, comfyServerUrl);
+
+      // Create initial DB record with processing status
+      const creationModel = prisma.creation || prisma.Creation;
+      if (creationModel) {
+        await creationModel.create({
+          data: {
+            userId,
+            prompt,
+            aspectRatio: aspect_ratio,
+            resolution,
+            requestId: promptId,
+            status: "processing",
+          }
+        });
+      }
+
+      return { request_id: promptId };
+    } catch (err) {
+      console.error("ComfyUI generation error:", err);
+      throw err;
+    }
+  },
+
+  /**
+   * Check status of a ComfyUI generation request
    */
   async checkStatus(requestId, userId, metadata) {
-    const creationModel = prisma.creation || prisma.Creation;
-    if (!creationModel) return { status: "processing" };
-
-    const creation = await creationModel.findUnique({
-      where: { requestId }
-    });
-
-    if (!creation) {
+    const comfyServerUrl = config.ai?.comfy?.serverUrl;
+    if (!comfyServerUrl) {
       return { status: "processing" };
     }
 
-    if (creation.status === "completed") {
-      return { status: "completed", imageUrl: creation.imageUrl };
-    }
+    const creationModel = prisma.creation || prisma.Creation;
+    if (!creationModel) return { status: "processing" };
 
-    if (creation.status === "failed") {
-      throw new Error(creation.error || "Generation failed.");
-    }
+    try {
+      const creation = await creationModel.findUnique({
+        where: { requestId: requestId }
+      });
 
-    // Fallback: poll the external API if the webhook has not updated the database
-    const comfyUrl = config.ai?.comfy?.submitUrl;
-    const apiKey = config.ai.banana.apiKey;
-    // Only poll Nano Banana if Comfy is not configured
-    if (!comfyUrl && apiKey) {
-      try {
-        const pollRes = await fetch(`https://api.muapi.ai/api/v1/predictions/${requestId}/result`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey
-          }
-        });
-
-        if (pollRes.ok) {
-          const pollJson = await pollRes.json();
-          const state = pollJson.status || pollJson.state;
-
-          if (state === "completed" || state === "succeeded") {
-            const outputs = pollJson.outputs || [];
-            const imageUrl = outputs[0] || (typeof pollJson.output === "string" ? pollJson.output : pollJson.output?.urls?.get);
-            if (imageUrl) {
-              const updated = await creationModel.update({
-                where: { id: creation.id },
-                data: {
-                  status: "completed",
-                  imageUrl
-                }
-              });
-              return { status: "completed", imageUrl: updated.imageUrl };
-            }
-          } else if (state === "failed") {
-            const errorMsg = pollJson.error || "Generation failed";
-            await creationModel.update({
-              where: { id: creation.id },
-              data: {
-                status: "failed",
-                error: errorMsg
-              }
-            });
-            throw new Error(errorMsg);
-          }
-        }
-      } catch (err) {
-        console.error("Error polling external status:", err);
+      if (!creation) {
+        return { status: "processing" };
       }
-    }
 
-    return { status: "processing" };
-  }
+      if (creation.status === "completed") {
+        return { status: "completed", imageUrl: creation.imageUrl };
+      }
+
+      if (creation.status === "failed") {
+        throw new Error(creation.error || "Generation failed.");
+      }
+
+      // Poll ComfyUI for latest status
+      try {
+        const pollResult = await this.pollComfyStatus(requestId, comfyServerUrl);
+        
+        if (pollResult.status === "completed") {
+          const imageUrl = this.getComfyImageUrl(comfyServerUrl, pollResult.imageFilename, pollResult.imageSubfolder);
+          
+          // Update DB record
+          const updated = await creationModel.update({
+            where: { id: creation.id },
+            data: {
+              status: "completed",
+              imageUrl,
+            }
+          });
+
+          return { status: "completed", imageUrl: updated.imageUrl };
+        }
+      } catch (pollErr) {
+        console.error("Error polling ComfyUI:", pollErr);
+        // Return processing status if polling fails
+        return { status: "processing" };
+      }
+
+      return { status: "processing" };
+    } catch (err) {
+      console.error("Error checking status:", err);
+      throw err;
+    }
+  },
+
+  /**
+   * Edit is not supported in ComfyUI version yet (only generation)
+   */
+  async edit(userId, { prompt, images_list = [], aspect_ratio = "Auto", resolution = "1k" }) {
+    throw new Error("Edit mode is not yet supported with ComfyUI. Please use Generate mode.");
+  },
 };
