@@ -52,6 +52,7 @@ export default function Home() {
   const ratioRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const [googleSearch, setGoogleSearch] = useState(false);
 
   // Form State
   const [prompt, setPrompt] = useState("");
