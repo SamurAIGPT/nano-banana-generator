@@ -258,10 +258,30 @@ export const AIService = {
           const viewUrl = this.getComfyImageUrl(comfyServerUrl, imageFilename, imageSubfolder);
 
           try {
-            const res = await fetch(viewUrl);
-            if (!res.ok) throw new Error(`Image fetch failed: ${res.status} ${res.statusText}`);
-            const arrayBuffer = await res.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
+            // Try downloading the image repeatedly because ComfyUI may expose the file slightly after history shows it.
+            const maxAttempts = 40; // ~2 minutes at 3s interval
+            const intervalMs = 3000;
+            let buffer = null;
+
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              try {
+                const res = await fetch(viewUrl);
+                if (res && res.ok) {
+                  const arrayBuffer = await res.arrayBuffer();
+                  if (arrayBuffer && arrayBuffer.byteLength > 0) {
+                    buffer = Buffer.from(arrayBuffer);
+                    break;
+                  }
+                }
+              } catch (attemptErr) {
+                // ignore and retry
+              }
+
+              // Wait before next attempt
+              await new Promise((r) => setTimeout(r, intervalMs));
+            }
+
+            if (!buffer) throw new Error(`Failed to download image after ${maxAttempts} attempts`);
 
             const publicDir = path.join(process.cwd(), "public", "creations");
             if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
