@@ -1,6 +1,8 @@
 import config from "@/lib/config";
 import { UserService } from "./user";
 import { prisma } from "@/lib/prisma";
+import fs from "fs";
+import path from "path";
 
 /**
  * ComfyUI integration for image generation
@@ -252,18 +254,47 @@ export const AIService = {
         const pollResult = await this.pollComfyStatus(requestId, comfyServerUrl);
         
         if (pollResult.status === "completed") {
-          const imageUrl = this.getComfyImageUrl(comfyServerUrl, pollResult.imageFilename, pollResult.imageSubfolder);
-          
-          // Update DB record
-          const updated = await creationModel.update({
-            where: { id: creation.id },
-            data: {
-              status: "completed",
-              imageUrl,
-            }
-          });
+          const { imageFilename, imageSubfolder } = pollResult;
+          const viewUrl = this.getComfyImageUrl(comfyServerUrl, imageFilename, imageSubfolder);
 
-          return { status: "completed", imageUrl: updated.imageUrl };
+          try {
+            const res = await fetch(viewUrl);
+            if (!res.ok) throw new Error(`Image fetch failed: ${res.status} ${res.statusText}`);
+            const arrayBuffer = await res.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+
+            const publicDir = path.join(process.cwd(), "public", "creations");
+            if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
+
+            // Prefix filename with requestId to avoid collisions
+            const savedName = `${requestId}_${imageFilename}`;
+            const savePath = path.join(publicDir, savedName);
+
+            fs.writeFileSync(savePath, buffer);
+            const publicUrl = `/creations/${savedName}`;
+
+            const updated = await creationModel.update({
+              where: { id: creation.id },
+              data: {
+                status: "completed",
+                imageUrl: publicUrl,
+              }
+            });
+
+            return { status: "completed", imageUrl: updated.imageUrl };
+          } catch (downloadErr) {
+            console.error("Failed to download/save image:", downloadErr);
+            // Fallback: store comfy view URL so client can still fetch it
+            const fallbackUrl = viewUrl;
+            const updated = await creationModel.update({
+              where: { id: creation.id },
+              data: {
+                status: "completed",
+                imageUrl: fallbackUrl,
+              }
+            });
+            return { status: "completed", imageUrl: updated.imageUrl };
+          }
         }
       } catch (pollErr) {
         console.error("Error polling ComfyUI:", pollErr);
