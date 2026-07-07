@@ -66,6 +66,12 @@ export default function Home() {
   const [sampler, setSampler] = useState("euler");
   const [scheduler, setScheduler] = useState("karras");
   
+  // Edit mode parameters
+  const [editImage, setEditImage] = useState(null);
+  const [editCfg, setEditCfg] = useState(1);
+  const [editSteps, setEditSteps] = useState(20);
+  const [editDenoise, setEditDenoise] = useState(1);
+  
   const [imagesList, setImagesList] = useState([]); // Max 14 URLs (for edit mode, not used)
   const [newImageUrl, setNewImageUrl] = useState("");
 
@@ -229,6 +235,59 @@ export default function Home() {
     }
   };
 
+  const handleEdit = async () => {
+   // Guest Guard
+   if (!session) {
+     signIn();
+     return;
+   }
+
+   if (!prompt.trim()) {
+     setError("Please enter an edit prompt.");
+     return;
+   }
+
+   if (!editImage) {
+     setError("Please upload an image to edit.");
+     return;
+   }
+
+   try {
+     setLoading(true);
+     setError(null);
+     setResultUrl(null);
+     setStatusMessage("INITIATING EDIT...");
+
+     const formData = new FormData();
+     formData.append("prompt", prompt);
+     formData.append("image", editImage);
+     formData.append("steps", editSteps);
+     formData.append("cfg", editCfg);
+     formData.append("denoise", editDenoise);
+     formData.append("sampler", sampler);
+     formData.append("scheduler", "simple");
+
+     const res = await fetch("/api/banana/edit", {
+       method: "POST",
+       body: formData,
+     });
+
+     const data = await res.json();
+
+     if (!res.ok) {
+       throw new Error(data.error || "Failed to initiate edit.");
+     }
+
+     // Start Polling
+     const { request_id, metadata } = data;
+     await pollStatus(request_id, metadata);
+   } catch (err) {
+     setError(err.message || "An unexpected error occurred.");
+     console.error(err);
+     setLoading(false);
+   }
+  };
+
   return (
     <div className="flex flex-col-reverse lg:flex-row flex-1 h-full w-full overflow-y-auto lg:overflow-hidden">
       <aside className="w-full lg:w-96 border-t lg:border-t-0 lg:border-r border-glass-border bg-glass-bg backdrop-blur-3xl flex flex-col shrink-0 h-auto lg:h-full lg:overflow-y-auto custom-scrollbar">
@@ -244,17 +303,30 @@ export default function Home() {
 
           <div className="flex p-1 bg-glass-hover rounded-lg border border-glass-border">
             <button
-              onClick={() => setMode("generate")}
-              className="flex-1 py-2 rounded-md text-[10px] font-semibold uppercase tracking-widest transition-all flex items-center justify-center gap-2 bg-[var(--solid-bg)] text-foreground drop-shadow-sm shadow-md ring-1 ring-glass-border"
+              onClick={() => {
+                setMode("generate");
+                setEditImage(null);
+              }}
+              className={`flex-1 py-2 rounded-md text-[10px] font-semibold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                mode === "generate"
+                  ? "bg-[var(--solid-bg)] text-foreground drop-shadow-sm shadow-md ring-1 ring-glass-border"
+                  : "text-muted/60 hover:text-muted"
+              }`}
             >
               <FaMagic className="text-xs" /> Generate
             </button>
             <button
-              disabled
-              className="flex-1 py-2 rounded-md text-[10px] font-semibold uppercase tracking-widest text-muted/50 cursor-not-allowed opacity-50 flex items-center justify-center gap-2"
-              title="Edit mode not yet supported with ComfyUI workflows"
+              onClick={() => {
+                setMode("edit");
+                setEditImage(null);
+              }}
+              className={`flex-1 py-2 rounded-md text-[10px] font-semibold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                mode === "edit"
+                  ? "bg-[var(--solid-bg)] text-foreground drop-shadow-sm shadow-md ring-1 ring-glass-border"
+                  : "text-muted/60 hover:text-muted"
+              }`}
             >
-              <FaSyncAlt className="text-xs" /> Edit (Coming Soon)
+              <FaSyncAlt className="text-xs" /> Edit
             </button>
           </div>
         </div>
@@ -262,232 +334,351 @@ export default function Home() {
           {/* Prompt Section */}
           <div className="space-y-2">
             <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-              <div className="w-1 h-1 bg-primary rounded-full" /> Prompt
+              <div className="w-1 h-1 bg-primary rounded-full" /> {mode === "generate" ? "Prompt" : "Edit Directive"}
             </label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="A cybernetic banana floating in space..."
+              placeholder={mode === "generate" ? "A cybernetic banana floating in space..." : "Describe how you want to edit the image..."}
               className="w-full h-24 bg-[var(--solid-bg)] bg-opacity-70 border border-glass-border rounded-lg p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-all placeholder:text-muted/60 text-foreground drop-shadow-sm"
             />
           </div>
 
-          {/* Negative Prompt */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-              <div className="w-1 h-1 bg-primary rounded-full" /> Negative Prompt (Optional)
-            </label>
-            <textarea
-              value={negativePrompt}
-              onChange={(e) => setNegativePrompt(e.target.value)}
-              placeholder="Blur, low quality, distorted..."
-              className="w-full h-20 bg-[var(--solid-bg)] bg-opacity-70 border border-glass-border rounded-lg p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-all placeholder:text-muted/60 text-foreground drop-shadow-sm"
-            />
-          </div>
+          {/* Image Upload for Edit Mode */}
+          {mode === "edit" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                <div className="w-1 h-1 bg-primary rounded-full" /> Upload Image
+              </label>
+              <div className="relative">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
+                      if (!allowedTypes.includes(file.type)) {
+                        setError("Please upload only PNG, JPG, or JPEG images.");
+                        return;
+                      }
+                      if (file.size > 5 * 1024 * 1024) {
+                        setError("File size exceeds 5MB limit.");
+                        return;
+                      }
+                      setEditImage(file);
+                      setError(null);
+                    }
+                  }}
+                  accept="image/png,image/jpeg,image/jpg"
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full py-3 px-4 border-2 border-dashed border-glass-border rounded-lg text-center hover:bg-glass-hover transition-all disabled:opacity-50"
+                >
+                  {editImage ? (
+                    <span className="text-xs font-semibold text-foreground">
+                      ✓ {editImage.name}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-semibold text-muted">
+                      {isUploading ? "Uploading..." : "Click to upload image"}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Negative Prompt for Generate Mode */}
+          {mode === "generate" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                <div className="w-1 h-1 bg-primary rounded-full" /> Negative Prompt (Optional)
+              </label>
+              <textarea
+                value={negativePrompt}
+                onChange={(e) => setNegativePrompt(e.target.value)}
+                placeholder="Blur, low quality, distorted..."
+                className="w-full h-20 bg-[var(--solid-bg)] bg-opacity-70 border border-glass-border rounded-lg p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-all placeholder:text-muted/60 text-foreground drop-shadow-sm"
+              />
+            </div>
+          )}
 
           {/* ComfyUI Generation Parameters */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Steps */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-                <div className="w-1 h-1 bg-primary rounded-full" /> Steps
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                value={steps}
-                onChange={(e) => setSteps(Number(e.target.value))}
-                className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
-              />
-            </div>
+          {mode === "generate" && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Steps */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> Steps
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={steps}
+                    onChange={(e) => setSteps(Number(e.target.value))}
+                    className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+                  />
+                </div>
 
-            {/* CFG */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-                <div className="w-1 h-1 bg-primary rounded-full" /> CFG Scale
-              </label>
-              <input
-                type="number"
-                min="0.1"
-                max="20"
-                step="0.1"
-                value={cfg}
-                onChange={(e) => setCfg(Number(e.target.value))}
-                className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
-              />
-            </div>
-          </div>
+                {/* CFG */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> CFG Scale
+                  </label>
+                  <input
+                    type="number"
+                    min="0.1"
+                    max="20"
+                    step="0.1"
+                    value={cfg}
+                    onChange={(e) => setCfg(Number(e.target.value))}
+                    className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+                  />
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            {/* Sampler */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-                <div className="w-1 h-1 bg-primary rounded-full" /> Sampler
-              </label>
-              <select
-                value={sampler}
-                onChange={(e) => setSampler(e.target.value)}
-                className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
-              >
-                <option value="euler">Euler</option>
-                <option value="euler_ancestral">Euler Ancestral</option>
-                <option value="heun">Heun</option>
-                <option value="dpm_2">DPM 2</option>
-                <option value="dpm_2_ancestral">DPM 2 Ancestral</option>
-                <option value="lms">LMS</option>
-                <option value="dpm_fast">DPM Fast</option>
-                <option value="dpm_adaptive">DPM Adaptive</option>
-                <option value="dpmpp_2s_ancestral">DPMpp 2S Ancestral</option>
-                <option value="dpmpp_2m">DPMpp 2M</option>
-                <option value="dpmpp_sde">DPMpp SDE</option>
-                <option value="dpmpp_sde_gpu">DPMpp SDE GPU</option>
-                <option value="uni_pc">Uni PC</option>
-                <option value="uni_pc_bh2">Uni PC BH2</option>
-              </select>
-            </div>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Sampler */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> Sampler
+                  </label>
+                  <select
+                    value={sampler}
+                    onChange={(e) => setSampler(e.target.value)}
+                    className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+                  >
+                    <option value="euler">Euler</option>
+                    <option value="euler_ancestral">Euler Ancestral</option>
+                    <option value="heun">Heun</option>
+                    <option value="dpm_2">DPM 2</option>
+                    <option value="dpm_2_ancestral">DPM 2 Ancestral</option>
+                    <option value="lms">LMS</option>
+                    <option value="dpm_fast">DPM Fast</option>
+                    <option value="dpm_adaptive">DPM Adaptive</option>
+                    <option value="dpmpp_2s_ancestral">DPMpp 2S Ancestral</option>
+                    <option value="dpmpp_2m">DPMpp 2M</option>
+                    <option value="dpmpp_sde">DPMpp SDE</option>
+                    <option value="dpmpp_sde_gpu">DPMpp SDE GPU</option>
+                    <option value="uni_pc">Uni PC</option>
+                    <option value="uni_pc_bh2">Uni PC BH2</option>
+                  </select>
+                </div>
 
-            {/* Scheduler */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-                <div className="w-1 h-1 bg-primary rounded-full" /> Scheduler
-              </label>
-              <select
-                value={scheduler}
-                onChange={(e) => setScheduler(e.target.value)}
-                className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
-              >
-                <option value="normal">Normal</option>
-                <option value="karras">Karras</option>
-                <option value="exponential">Exponential</option>
-                <option value="simple">Simple</option>
-                <option value="ddim_uniform">DDIM Uniform</option>
-              </select>
-            </div>
-          </div>
+                {/* Scheduler */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> Scheduler
+                  </label>
+                  <select
+                    value={scheduler}
+                    onChange={(e) => setScheduler(e.target.value)}
+                    className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="karras">Karras</option>
+                    <option value="exponential">Exponential</option>
+                    <option value="simple">Simple</option>
+                    <option value="ddim_uniform">DDIM Uniform</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
 
-          {/* Aspect Ratio */}
-          <div className="space-y-3" ref={ratioRef}>
-            <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-              <div className="w-1 h-1 bg-primary rounded-full" /> Aspect
-              Ratio
-            </label>
-            <div className="relative">
+          {/* Edit Mode Parameters */}
+          {mode === "edit" && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Edit Steps */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> Steps
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={editSteps}
+                    onChange={(e) => setEditSteps(Number(e.target.value))}
+                    className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+                  />
+                </div>
+
+                {/* Edit CFG */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> CFG Scale
+                  </label>
+                  <input
+                    type="number"
+                    min="0.1"
+                    max="20"
+                    step="0.1"
+                    value={editCfg}
+                    onChange={(e) => setEditCfg(Number(e.target.value))}
+                    className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Denoise Slider */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-foreground font-semibold flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> Denoise Strength
+                  </div>
+                  <span className="text-primary font-bold">{(editDenoise * 100).toFixed(0)}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.1"
+                  value={editDenoise}
+                  onChange={(e) => setEditDenoise(Number(e.target.value))}
+                  className="w-full h-2 bg-glass-bg rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+                <p className="text-[10px] text-muted font-medium">
+                  Lower = subtle edits, Higher = stronger changes
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Aspect Ratio - Generate Mode Only */}
+          {mode === "generate" && (
+            <div className="space-y-3" ref={ratioRef}>
+              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                <div className="w-1 h-1 bg-primary rounded-full" /> Aspect Ratio
+              </label>
+              <div className="relative">
+                <button
+                  onClick={() => setIsRatioOpen(!isRatioOpen)}
+                  className="w-full flex items-center justify-between p-3 bg-glass-bg border border-glass-border hover:bg-glass-hover shadow-sm rounded-lg text-xs font-semibold transition-all outline-none text-foreground backdrop-blur-md"
+                >
+                  <div className="flex items-center gap-3">
+                    <FaExpand className="text-primary" />
+                    {aspectRatio.label}
+                  </div>
+                  <FaChevronDown
+                    className={`text-[10px] transition-transform duration-300 ${isRatioOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                <AnimatePresence>
+                  {isRatioOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 5 }}
+                      className="absolute top-12 left-0 right-0 max-h-60 bg-[var(--solid-bg)] border border-glass-border rounded-lg overflow-y-auto custom-scrollbar shadow-2xl z-[100] p-1"
+                    >
+                      {ASPECT_RATIOS.map((ratio) => (
+                        <button
+                          key={ratio.value}
+                          onClick={() => {
+                            setAspectRatio(ratio);
+                            setIsRatioOpen(false);
+                          }}
+                          className={`w-full text-left p-3 rounded-lg text-[10px] font-bold transition-all flex items-center gap-3 ${
+                            aspectRatio.value === ratio.value
+                              ? "bg-primary text-white shadow-md shadow-primary/20"
+                              : "text-muted hover:bg-glass-hover hover:text-foreground"
+                          }`}
+                        >
+                          <div
+                            className={`w-3 h-3 border ${aspectRatio.value === ratio.value ? "border-white" : "border-zinc-700"} rounded-sm`}
+                          />
+                          {ratio.label}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          )}
+
+          {/* Tiered Resolution - Generate Mode Only */}
+          {mode === "generate" && (
+            <div className="space-y-3">
+              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                <div className="w-1 h-1 bg-primary rounded-full" /> Resolution
+              </label>
+              <div className="flex gap-2">
+                {RESOLUTIONS.map((res) => (
+                  <button
+                    key={res.value}
+                    onClick={() => setResolution(res)}
+                    className={`flex-1 flex flex-col items-center py-3 rounded-lg border transition-all ${
+                      resolution.value === res.value
+                        ? "bg-primary border-primary/50 text-white shadow-lg shadow-primary/30"
+                        : "bg-glass-bg border-glass-border text-muted hover:bg-glass-hover hover:text-foreground"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold tracking-tight">
+                      {res.value}
+                    </span>
+                    <span
+                      className={`text-xs font-medium mt-1 ${resolution.value === res.value ? "text-white/80" : "opacity-60"}`}
+                    >
+                      {res.cost} Credits
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Google Search - Generate Mode Only */}
+          {mode === "generate" && (
+            <div className="space-y-3">
+              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                <div className="w-1 h-1 bg-primary rounded-full" /> Google
+                Search
+              </label>
               <button
-                onClick={() => setIsRatioOpen(!isRatioOpen)}
-                className="w-full flex items-center justify-between p-3 bg-glass-bg border border-glass-border hover:bg-glass-hover shadow-sm rounded-lg text-xs font-semibold transition-all outline-none text-foreground backdrop-blur-md"
+                onClick={() => setGoogleSearch(!googleSearch)}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
+                  googleSearch
+                    ? "bg-primary border-primary/50 text-white shadow-md"
+                    : "bg-glass-bg border-glass-border text-muted hover:bg-glass-bg"
+                }`}
               >
                 <div className="flex items-center gap-3">
-                  <FaExpand className="text-primary" />
-                  {aspectRatio.label}
+                  <FaSearch
+                    className={googleSearch ? "text-white" : "text-muted"}
+                  />
+                  <span className="text-[10px] font-black uppercase tracking-widest leading-none">
+                    Smart Search
+                  </span>
                 </div>
-                <FaChevronDown
-                  className={`text-[10px] transition-transform duration-300 ${isRatioOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-
-              <AnimatePresence>
-                {isRatioOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 5 }}
-                    className="absolute top-12 left-0 right-0 max-h-60 bg-[var(--solid-bg)] border border-glass-border rounded-lg overflow-y-auto custom-scrollbar shadow-2xl z-[100] p-1"
-                  >
-                    {ASPECT_RATIOS.map((ratio) => (
-                      <button
-                        key={ratio.value}
-                        onClick={() => {
-                          setAspectRatio(ratio);
-                          setIsRatioOpen(false);
-                        }}
-                        className={`w-full text-left p-3 rounded-lg text-[10px] font-bold transition-all flex items-center gap-3 ${
-                          aspectRatio.value === ratio.value
-                            ? "bg-primary text-white shadow-md shadow-primary/20"
-                            : "text-muted hover:bg-glass-hover hover:text-foreground"
-                        }`}
-                      >
-                        <div
-                          className={`w-3 h-3 border ${aspectRatio.value === ratio.value ? "border-white" : "border-zinc-700"} rounded-sm`}
-                        />
-                        {ratio.label}
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          {/* Tiered Resolution */}
-          <div className="space-y-3">
-            <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-              <div className="w-1 h-1 bg-primary rounded-full" /> Resolution
-            </label>
-            <div className="flex gap-2">
-              {RESOLUTIONS.map((res) => (
-                <button
-                  key={res.value}
-                  onClick={() => setResolution(res)}
-                  className={`flex-1 flex flex-col items-center py-3 rounded-lg border transition-all ${
-                    resolution.value === res.value
-                      ? "bg-primary border-primary/50 text-white shadow-lg shadow-primary/30"
-                      : "bg-glass-bg border-glass-border text-muted hover:bg-glass-hover hover:text-foreground"
-                  }`}
+                <div
+                  className={`w-8 h-4 rounded-full relative p-1 transition-colors flex items-center ${googleSearch ? "bg-primary" : "bg-[var(--solid-bg)] border border-glass-border opacity-70"}`}
                 >
-                  <span className="text-sm font-semibold tracking-tight">
-                    {res.value}
-                  </span>
-                  <span
-                    className={`text-xs font-medium mt-1 ${resolution.value === res.value ? "text-white/80" : "opacity-60"}`}
-                  >
-                    {res.cost} Credits
-                  </span>
-                </button>
-              ))}
+                  <motion.div
+                    animate={{ x: googleSearch ? 14 : 0 }}
+                    className="w-2.5 h-2.5 rounded-full bg-white shadow-sm absolute left-1"
+                  />
+                </div>
+              </button>
             </div>
-          </div>
-
-          {/* Google Search */}
-          <div className="space-y-3">
-            <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-              <div className="w-1 h-1 bg-primary rounded-full" /> Google
-              Search
-            </label>
-            <button
-              onClick={() => setGoogleSearch(!googleSearch)}
-              className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
-                googleSearch
-                  ? "bg-primary border-primary/50 text-white shadow-md"
-                  : "bg-glass-bg border-glass-border text-muted hover:bg-glass-bg"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <FaSearch
-                  className={googleSearch ? "text-white" : "text-muted"}
-                />
-                <span className="text-[10px] font-black uppercase tracking-widest leading-none">
-                  Smart Search
-                </span>
-              </div>
-              <div
-                className={`w-8 h-4 rounded-full relative p-1 transition-colors flex items-center ${googleSearch ? "bg-primary" : "bg-[var(--solid-bg)] border border-glass-border opacity-70"}`}
-              >
-                <motion.div
-                  animate={{ x: googleSearch ? 14 : 0 }}
-                  className="w-2.5 h-2.5 rounded-full bg-white shadow-sm absolute left-1"
-                />
-              </div>
-            </button>
-          </div>
+          )}
         </div>
         <div className="p-6 border-t border-glass-border">
           <button
-            onClick={handleGenerate}
+            onClick={mode === "generate" ? handleGenerate : handleEdit}
             disabled={
               loading ||
               (mode === "generate" && !prompt.trim()) ||
-              (mode === "edit" && imagesList.length === 0)
+              (mode === "edit" && (!editImage || !prompt.trim()))
             }
             className="w-full bg-primary hover:bg-primary-hover text-white rounded-lg py-3.5 font-bold tracking-wider uppercase text-xs flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 shadow-xl shadow-primary/30 border border-primary/50"
           >
@@ -496,7 +687,11 @@ export default function Home() {
             ) : (
               <FaBolt className="text-yellow-400" />
             )}
-            {loading ? "PROCESSING..." : `Generate ${resolution.cost} Credits`}
+            {loading
+              ? "PROCESSING..."
+              : mode === "generate"
+              ? `Generate ${resolution.cost} Credits`
+              : "EDIT - 2 Credits"}
           </button>
         </div>
       </aside>
