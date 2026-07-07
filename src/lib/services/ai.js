@@ -336,9 +336,117 @@ export const AIService = {
   },
 
   /**
-   * Edit is not supported in ComfyUI version yet (only generation)
+   * Upload image to ComfyUI server
    */
-  async edit(userId, { prompt, images_list = [], aspect_ratio = "Auto", resolution = "1k" }) {
-    throw new Error("Edit mode is not yet supported with ComfyUI. Please use Generate mode.");
+  async uploadImageToComfy(imageBuffer, filename, comfyServerUrl) {
+    const formData = new FormData();
+    const blob = new Blob([imageBuffer], { type: "image/png" });
+    formData.append("image", blob, filename);
+
+    const response = await fetch(`${comfyServerUrl}/upload/image`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`ComfyUI image upload failed: ${response.status} ${text}`);
+    }
+
+    const data = await response.json();
+    if (!data.name) {
+      throw new Error("ComfyUI did not return uploaded image name");
+    }
+    return data.name;
+  },
+
+  /**
+   * Load and customize ComfyUI edit workflow from environment config
+   */
+  async loadComfyEditWorkflow(prompt, uploadedImageName, params = {}) {
+    const workflowJson = config.ai?.comfy?.editWorkflow;
+    if (!workflowJson) {
+      throw new Error("ComfyUI edit workflow not configured");
+    }
+
+    let workflow;
+    try {
+      workflow = typeof workflowJson === "string" ? JSON.parse(workflowJson) : workflowJson;
+    } catch (err) {
+      console.error("Failed to parse edit workflow JSON:", err);
+      throw new Error("Invalid ComfyUI edit workflow JSON");
+    }
+
+    // Load image - node 78
+    if (workflow["78"]) {
+      workflow["78"]["inputs"]["image"] = uploadedImageName;
+    }
+
+    // Set positive prompt - node 435
+    if (workflow["435"]) {
+      workflow["435"]["inputs"]["value"] = prompt;
+    }
+
+    // Update KSampler node (node 433:3) with edit parameters
+    if (workflow["433:3"]) {
+      workflow["433:3"]["inputs"]["seed"] = params.seed || Math.floor(Math.random() * 999999999999999);
+      workflow["433:3"]["inputs"]["steps"] = params.steps || 20;
+      workflow["433:3"]["inputs"]["cfg"] = params.cfg || 1;
+      workflow["433:3"]["inputs"]["sampler_name"] = params.sampler || "euler";
+      workflow["433:3"]["inputs"]["scheduler"] = params.scheduler || "simple";
+      workflow["433:3"]["inputs"]["denoise"] = params.denoise || 1;
+    }
+
+    return workflow;
+  },
+
+  /**
+   * Edit image with ComfyUI
+   */
+  async edit(userId, { prompt, imageBuffer, filename, steps = 20, cfg = 1, sampler = "euler", scheduler = "simple", denoise = 1 }) {
+    const cost = 2; // Flat cost for editing
+    await UserService.deductCredits(userId, cost);
+
+    const comfyServerUrl = config.ai?.comfy?.serverUrl;
+    if (!comfyServerUrl) {
+      throw new Error("ComfyUI server URL not configured (COMFY_SERVER_URL)");
+    }
+
+    try {
+      // Upload image to ComfyUI
+      const uploadedImageName = await this.uploadImageToComfy(imageBuffer, filename, comfyServerUrl);
+      console.log(`Image uploaded to ComfyUI: ${uploadedImageName}`);
+
+      // Load and customize edit workflow
+      const workflow = await this.loadComfyEditWorkflow(prompt, uploadedImageName, {
+        steps,
+        cfg,
+        sampler,
+        scheduler,
+        denoise,
+      });
+
+      // Submit workflow to ComfyUI
+      const promptId = await this.submitComfyWorkflow(workflow, comfyServerUrl);
+
+      // Create initial DB record with processing status
+      const creationModel = prisma.creation || prisma.Creation;
+      if (creationModel) {
+        await creationModel.create({
+          data: {
+            userId,
+            prompt,
+            resolution: "edit",
+            requestId: promptId,
+            status: "processing",
+          }
+        });
+      }
+
+      return { request_id: promptId };
+    } catch (err) {
+      console.error("ComfyUI edit error:", err);
+      throw err;
+    }
   },
 };

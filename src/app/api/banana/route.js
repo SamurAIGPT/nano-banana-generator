@@ -28,9 +28,10 @@ export async function POST(req) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
 
-    // ComfyUI only supports generation, not edit mode
+    // Only text-to-image generation via this endpoint
+    // For image editing, use /api/banana/edit instead
     if (mode === "edit") {
-      return NextResponse.json({ error: "Edit mode is not yet supported" }, { status: 400 });
+      return NextResponse.json({ error: "Use /api/banana/edit for image editing" }, { status: 400 });
     }
 
     const result = await AIService.generate(session.user.id, {
