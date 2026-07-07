@@ -123,6 +123,7 @@ export const AIService = {
       try {
         const response = await fetch(`${comfyServerUrl}/history/${promptId}`);
         if (!response.ok) {
+          console.error(`Failed to fetch history for prompt ${promptId}: ${response.status}`);
           await new Promise(r => setTimeout(r, 2000));
           continue;
         }
@@ -130,22 +131,25 @@ export const AIService = {
         const history = await response.json();
         if (!history[promptId]) {
           // Prompt not yet in history, keep polling
+          console.log(`Prompt ${promptId} not yet in history, attempt ${attempt + 1}`);
           await new Promise(r => setTimeout(r, 2000));
           continue;
         }
 
         const execution = history[promptId];
-
+        console.log(`Prompt ${promptId} status: ${execution?.status?.status_str || "unknown"}`);
         // Check if execution completed
-        if (execution.outputs && execution.status && execution.status.exec_info === "execution completed") {
+        if (execution?.outputs && execution?.status?.status_str === "success") {
+          console.log(`Prompt ${promptId} completed, extracting image info`);
           // Extract images from SaveImage node (usually node 9)
           const images = execution.outputs[9]?.images || [];
+          console.log(`Found ${images.length} images in SaveImage node for prompt ${promptId}`);
           if (images.length > 0) {
             const img = images[0];
             return {
               status: "completed",
               imageFilename: img.filename,
-              imageSubfolder: img.subfolder || "outputs",
+              imageSubfolder: img.subfolder || "",
             };
           }
         }
@@ -158,7 +162,7 @@ export const AIService = {
       }
     }
 
-    throw new Error("ComfyUI generation timeout after 4 minutes");
+    throw Error("ComfyUI generation timeout after 4 minutes");
   },
 
   /**
@@ -242,6 +246,7 @@ export const AIService = {
       }
 
       if (creation.status === "completed") {
+        console.log(`Creation ${requestId} already completed with image URL: ${creation.imageUrl}`);
         return { status: "completed", imageUrl: creation.imageUrl };
       }
 
@@ -274,6 +279,7 @@ export const AIService = {
                   }
                 }
               } catch (attemptErr) {
+                console.error(`Attempt ${attempt} to download image failed:`, attemptErr);
                 // ignore and retry
               }
 
