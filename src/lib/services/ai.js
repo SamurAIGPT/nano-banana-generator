@@ -28,6 +28,61 @@ export const AIService = {
     const cost = this.getCreditCost(resolution);
     await UserService.deductCredits(userId, cost);
 
+    const comfyUrl = config.ai?.comfy?.submitUrl;
+    if (comfyUrl) {
+      // Try synchronous submission to local ComfyUI endpoint
+      const submitRes = await fetch(comfyUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          aspect_ratio,
+          resolution,
+          google_search,
+        }),
+      });
+
+      if (!submitRes.ok) {
+        const errorText = await submitRes.text();
+        throw new Error(`Comfy submission failed: ${submitRes.status} ${errorText}`);
+      }
+
+      let submitJson = null;
+      try { submitJson = await submitRes.json(); } catch (e) { submitJson = null; }
+      const request_id = submitJson?.request_id || submitJson?.id || null;
+      const imageUrl = submitJson?.imageUrl || submitJson?.url || submitJson?.output || submitJson?.image || (submitJson?.data && submitJson.data.url) || null;
+      const creationModel = prisma.creation || prisma.Creation;
+      if (imageUrl && creationModel) {
+        await creationModel.create({
+          data: {
+            userId,
+            prompt,
+            aspectRatio: aspect_ratio,
+            resolution,
+            requestId: request_id,
+            status: "completed",
+            imageUrl,
+          }
+        });
+        return { request_id, imageUrl };
+      } else if (request_id && creationModel) {
+        await creationModel.create({
+          data: {
+            userId,
+            prompt,
+            aspectRatio: aspect_ratio,
+            resolution,
+            requestId: request_id,
+            status: "processing",
+          }
+        });
+        return { request_id };
+      }
+      // If comfy didn't return a usable result, fallthrough to existing provider logic
+    }
+
     const apiKey = config.ai.banana.apiKey;
     if (!apiKey) throw new Error("NANO_BANANA_API_KEY is not configured");
 
@@ -79,6 +134,62 @@ export const AIService = {
   async edit(userId, { prompt, images_list = [], aspect_ratio = "Auto", google_search = false, resolution = "1k" }) {
     const cost = this.getCreditCost(resolution);
     await UserService.deductCredits(userId, cost);
+
+    const comfyUrl = config.ai?.comfy?.submitUrl;
+    if (comfyUrl) {
+      // Try synchronous submission to local ComfyUI endpoint for edits
+      const submitRes = await fetch(comfyUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          images_list,
+          aspect_ratio,
+          google_search,
+          resolution,
+        }),
+      });
+
+      if (!submitRes.ok) {
+        const errorText = await submitRes.text();
+        throw new Error(`Comfy submission failed: ${submitRes.status} ${errorText}`);
+      }
+
+      let submitJson = null;
+      try { submitJson = await submitRes.json(); } catch (e) { submitJson = null; }
+      const request_id = submitJson?.request_id || submitJson?.id || null;
+      const imageUrl = submitJson?.imageUrl || submitJson?.url || submitJson?.output || submitJson?.image || (submitJson?.data && submitJson.data.url) || null;
+      const creationModel = prisma.creation || prisma.Creation;
+      if (imageUrl && creationModel) {
+        await creationModel.create({
+          data: {
+            userId,
+            prompt,
+            aspectRatio: aspect_ratio,
+            resolution,
+            requestId: request_id,
+            status: "completed",
+            imageUrl,
+          }
+        });
+        return { request_id, imageUrl };
+      } else if (request_id && creationModel) {
+        await creationModel.create({
+          data: {
+            userId,
+            prompt,
+            aspectRatio: aspect_ratio,
+            resolution,
+            requestId: request_id,
+            status: "processing",
+          }
+        });
+        return { request_id };
+      }
+      // fallthrough to existing provider if needed
+    }
 
     const apiKey = config.ai.banana.apiKey;
     if (!apiKey) throw new Error("NANO_BANANA_API_KEY is not configured");
@@ -149,8 +260,10 @@ export const AIService = {
     }
 
     // Fallback: poll the external API if the webhook has not updated the database
+    const comfyUrl = config.ai?.comfy?.submitUrl;
     const apiKey = config.ai.banana.apiKey;
-    if (apiKey) {
+    // Only poll Nano Banana if Comfy is not configured
+    if (!comfyUrl && apiKey) {
       try {
         const pollRes = await fetch(`https://api.muapi.ai/api/v1/predictions/${requestId}/result`, {
           method: "GET",

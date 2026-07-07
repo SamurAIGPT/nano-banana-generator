@@ -2,7 +2,7 @@
  * Utility to download a remote image using fetch.
  * This converts the image to a blob and triggers a browser download.
  */
-export async function downloadImage(url, filename = "nano-banana-creation.jpg") {
+export async function downloadImage(url, filename = "creation.jpg") {
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error("Failed to fetch image");

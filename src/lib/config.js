@@ -29,6 +29,9 @@ const config = {
   ai: {
     banana: {
       apiKey: process.env.NANO_BANANA_API_KEY,
+    },
+    comfy: {
+      submitUrl: process.env.COMFY_SUBMIT_URL,
     }
   },
   db: {
