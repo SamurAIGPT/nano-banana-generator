@@ -44,7 +44,7 @@ export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Mode State: 'generate' or 'edit'
+  // Mode State: only 'generate' for ComfyUI
   const [mode, setMode] = useState("generate");
 
   // UI State
@@ -55,10 +55,17 @@ export default function Home() {
 
   // Form State
   const [prompt, setPrompt] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState(ASPECT_RATIOS[0]);
   const [resolution, setResolution] = useState(RESOLUTIONS[0]);
-  const [googleSearch, setGoogleSearch] = useState(false);
-  const [imagesList, setImagesList] = useState([]); // Max 14 URLs
+  
+  // ComfyUI generation parameters
+  const [steps, setSteps] = useState(20);
+  const [cfg, setCfg] = useState(7);
+  const [sampler, setSampler] = useState("euler");
+  const [scheduler, setScheduler] = useState("karras");
+  
+  const [imagesList, setImagesList] = useState([]); // Max 14 URLs (for edit mode, not used)
   const [newImageUrl, setNewImageUrl] = useState("");
 
   // Generation State
@@ -78,17 +85,6 @@ export default function Home() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  // Handle Mode Change
-  useEffect(() => {
-    if (mode === "edit") {
-      setAspectRatio(
-        ASPECT_RATIOS.find((r) => r.value === "Auto") || ASPECT_RATIOS[0],
-      );
-    } else {
-      setAspectRatio(ASPECT_RATIOS[0]);
-    }
-  }, [mode]);
 
   const addImageToList = () => {
     if (newImageUrl && imagesList.length < 14) {
@@ -158,9 +154,8 @@ export default function Home() {
       return;
     }
 
-    if (mode === "generate" && !prompt.trim()) return;
-    if (mode === "edit" && imagesList.length === 0) {
-      setError("Please add at least one reference image for editing.");
+    if (!prompt.trim()) {
+      setError("Please enter a prompt.");
       return;
     }
 
@@ -168,22 +163,21 @@ export default function Home() {
       setLoading(true);
       setError(null);
       setResultUrl(null);
-      setStatusMessage(
-        mode === "generate"
-          ? "INITIATING EXTRACTION..."
-          : "RECONFIGURING ELEMENTS...",
-      );
+      setStatusMessage("INITIATING GENERATION...");
 
       const res = await fetch("/api/banana", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mode,
+          mode: "generate",
           prompt,
+          negativePrompt,
           aspect_ratio: aspectRatio.value,
           resolution: resolution.value,
-          google_search: googleSearch,
-          images_list: imagesList,
+          steps,
+          cfg,
+          sampler,
+          scheduler,
         }),
       });
 
@@ -250,23 +244,16 @@ export default function Home() {
           <div className="flex p-1 bg-glass-hover rounded-lg border border-glass-border">
             <button
               onClick={() => setMode("generate")}
-              className={`flex-1 py-2 rounded-md text-[10px] font-semibold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                mode === "generate"
-                  ? "bg-[var(--solid-bg)] text-foreground drop-shadow-sm shadow-md ring-1 ring-glass-border"
-                  : "text-muted hover:text-foreground drop-shadow-sm hover:bg-glass-hover"
-              }`}
+              className="flex-1 py-2 rounded-md text-[10px] font-semibold uppercase tracking-widest transition-all flex items-center justify-center gap-2 bg-[var(--solid-bg)] text-foreground drop-shadow-sm shadow-md ring-1 ring-glass-border"
             >
               <FaMagic className="text-xs" /> Generate
             </button>
             <button
-              onClick={() => setMode("edit")}
-              className={`flex-1 py-2 rounded-md text-[10px] font-semibold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                mode === "edit"
-                  ? "bg-[var(--solid-bg)] text-foreground drop-shadow-sm shadow-md ring-1 ring-glass-border"
-                  : "text-muted hover:text-foreground drop-shadow-sm hover:bg-glass-hover"
-              }`}
+              disabled
+              className="flex-1 py-2 rounded-md text-[10px] font-semibold uppercase tracking-widest text-muted/50 cursor-not-allowed opacity-50 flex items-center justify-center gap-2"
+              title="Edit mode not yet supported with ComfyUI workflows"
             >
-              <FaSyncAlt className="text-xs" /> Edit
+              <FaSyncAlt className="text-xs" /> Edit (Coming Soon)
             </button>
           </div>
         </div>
@@ -274,96 +261,109 @@ export default function Home() {
           {/* Prompt Section */}
           <div className="space-y-2">
             <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-              <div className="w-1 h-1 bg-primary rounded-full" />{" "}
-              {mode === "generate" ? "Prompt" : "Edit Prompt"}
+              <div className="w-1 h-1 bg-primary rounded-full" /> Prompt
             </label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder={
-                mode === "generate"
-                  ? "A cybernetic banana floating in space..."
-                  : "Change the color of the banana to neon blue..."
-              }
-              className="w-full h-32 bg-[var(--solid-bg)] bg-opacity-70 border border-glass-border rounded-lg p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-all placeholder:text-muted/60 text-foreground drop-shadow-sm"
+              placeholder="A cybernetic banana floating in space..."
+              className="w-full h-24 bg-[var(--solid-bg)] bg-opacity-70 border border-glass-border rounded-lg p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-all placeholder:text-muted/60 text-foreground drop-shadow-sm"
             />
           </div>
 
-          {/* Edit Mode: Reference Images */}
-          {mode === "edit" && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="space-y-4"
-            >
+          {/* Negative Prompt */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+              <div className="w-1 h-1 bg-primary rounded-full" /> Negative Prompt (Optional)
+            </label>
+            <textarea
+              value={negativePrompt}
+              onChange={(e) => setNegativePrompt(e.target.value)}
+              placeholder="Blur, low quality, distorted..."
+              className="w-full h-20 bg-[var(--solid-bg)] bg-opacity-70 border border-glass-border rounded-lg p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-all placeholder:text-muted/60 text-foreground drop-shadow-sm"
+            />
+          </div>
+
+          {/* ComfyUI Generation Parameters */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Steps */}
+            <div className="space-y-2">
               <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-                <div className="w-1 h-1 bg-primary rounded-full" /> Reference
-                Images ({imagesList.length}/14)
+                <div className="w-1 h-1 bg-primary rounded-full" /> Steps
               </label>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={steps}
+                onChange={(e) => setSteps(Number(e.target.value))}
+                className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+              />
+            </div>
 
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newImageUrl}
-                    onChange={(e) => setNewImageUrl(e.target.value)}
-                    placeholder="Image URL..."
-                    className="flex-1 bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
-                  />
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    hidden
-                    accept=".png, .jpg, .jpeg"
-                    onChange={handleFileUpload}
-                  />
-                  <button
-                    onClick={() => {
-                      if (!session) {
-                        signIn();
-                        return;
-                      }
-                      fileInputRef.current?.click();
-                    }}
-                    disabled={isUploading || imagesList.length >= 14}
-                    className="w-10 h-10 bg-primary/10 border border-primary/10 text-primary rounded-lg flex items-center justify-center hover:bg-primary hover:text-white transition-all"
-                    title="Upload Local File"
-                  >
-                    {isUploading ? (
-                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <FaPlus className="text-lg group-hover:scale-110 transition-transform" />
-                    )}
-                  </button>
-                  <button
-                    onClick={addImageToList}
-                    disabled={!newImageUrl || imagesList.length >= 14}
-                    className="w-10 h-10 bg-primary/10 border border-primary/20 text-primary rounded-lg flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-sm"
-                    title="Add URL"
-                  >
-                    <FaPlus />
-                  </button>
-                </div>
+            {/* CFG */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                <div className="w-1 h-1 bg-primary rounded-full" /> CFG Scale
+              </label>
+              <input
+                type="number"
+                min="0.1"
+                max="20"
+                step="0.1"
+                value={cfg}
+                onChange={(e) => setCfg(Number(e.target.value))}
+                className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+              />
+            </div>
+          </div>
 
-                <div className="grid grid-cols-3 gap-2 pt-2">
-                  {imagesList.map((url, idx) => (
-                    <div
-                      key={idx}
-                      className="relative aspect-square rounded-lg bg-glass-bg overflow-hidden group border border-white/5"
-                    >
-                      <img src={url} className="w-full h-full object-cover" />
-                      <button
-                        onClick={() => removeImageFromList(idx)}
-                        className="absolute top-1 right-1 bg-red-500/80 p-1 rounded-lg text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <FaTrash className="text-[10px]" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Sampler */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                <div className="w-1 h-1 bg-primary rounded-full" /> Sampler
+              </label>
+              <select
+                value={sampler}
+                onChange={(e) => setSampler(e.target.value)}
+                className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+              >
+                <option value="euler">Euler</option>
+                <option value="euler_ancestral">Euler Ancestral</option>
+                <option value="heun">Heun</option>
+                <option value="dpm_2">DPM 2</option>
+                <option value="dpm_2_ancestral">DPM 2 Ancestral</option>
+                <option value="lms">LMS</option>
+                <option value="dpm_fast">DPM Fast</option>
+                <option value="dpm_adaptive">DPM Adaptive</option>
+                <option value="dpmpp_2s_ancestral">DPMpp 2S Ancestral</option>
+                <option value="dpmpp_2m">DPMpp 2M</option>
+                <option value="dpmpp_sde">DPMpp SDE</option>
+                <option value="dpmpp_sde_gpu">DPMpp SDE GPU</option>
+                <option value="uni_pc">Uni PC</option>
+                <option value="uni_pc_bh2">Uni PC BH2</option>
+              </select>
+            </div>
+
+            {/* Scheduler */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                <div className="w-1 h-1 bg-primary rounded-full" /> Scheduler
+              </label>
+              <select
+                value={scheduler}
+                onChange={(e) => setScheduler(e.target.value)}
+                className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+              >
+                <option value="normal">Normal</option>
+                <option value="karras">Karras</option>
+                <option value="exponential">Exponential</option>
+                <option value="simple">Simple</option>
+                <option value="ddim_uniform">DDIM Uniform</option>
+              </select>
+            </div>
+          </div>
 
           {/* Aspect Ratio */}
           <div className="space-y-3" ref={ratioRef}>
