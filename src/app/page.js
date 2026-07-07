@@ -614,7 +614,7 @@ export default function Home() {
                     <button
                       onClick={async () => {
                         setDownloading(true);
-                        await downloadImage(resultUrl, `nano-banana-${Date.now()}.jpg`);
+                        await downloadImage(resultUrl, `creation-${Date.now()}.jpg`);
                         setDownloading(false);
                       }}
                       disabled={downloading}
