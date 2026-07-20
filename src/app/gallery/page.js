@@ -235,7 +235,7 @@ export default function CreationsPage() {
                     onClick={async () => {
                       if (selectedImage.status !== "completed") return;
                       setDownloading(true);
-                      await downloadImage(selectedImage.imageUrl, `nano-banana-${selectedImage.id}.jpg`);
+                      await downloadImage(selectedImage.imageUrl, `creation-${selectedImage.id}.jpg`);
                       setDownloading(false);
                     }}
                     disabled={downloading || selectedImage.status !== "completed"}
