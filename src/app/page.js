@@ -44,7 +44,7 @@ export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Mode State: 'generate' or 'edit'
+  // Mode State: only 'generate' for ComfyUI
   const [mode, setMode] = useState("generate");
 
   // UI State
@@ -52,13 +52,27 @@ export default function Home() {
   const ratioRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const [googleSearch, setGoogleSearch] = useState(false);
 
   // Form State
   const [prompt, setPrompt] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState(ASPECT_RATIOS[0]);
   const [resolution, setResolution] = useState(RESOLUTIONS[0]);
-  const [googleSearch, setGoogleSearch] = useState(false);
-  const [imagesList, setImagesList] = useState([]); // Max 14 URLs
+  
+  // ComfyUI generation parameters
+  const [steps, setSteps] = useState(20);
+  const [cfg, setCfg] = useState(7);
+  const [sampler, setSampler] = useState("euler");
+  const [scheduler, setScheduler] = useState("karras");
+  
+  // Edit mode parameters
+  const [editImage, setEditImage] = useState(null);
+  const [editCfg, setEditCfg] = useState(1);
+  const [editSteps, setEditSteps] = useState(20);
+  const [editDenoise, setEditDenoise] = useState(1);
+  
+  const [imagesList, setImagesList] = useState([]); // Max 14 URLs (for edit mode, not used)
   const [newImageUrl, setNewImageUrl] = useState("");
 
   // Generation State
@@ -78,17 +92,6 @@ export default function Home() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  // Handle Mode Change
-  useEffect(() => {
-    if (mode === "edit") {
-      setAspectRatio(
-        ASPECT_RATIOS.find((r) => r.value === "Auto") || ASPECT_RATIOS[0],
-      );
-    } else {
-      setAspectRatio(ASPECT_RATIOS[0]);
-    }
-  }, [mode]);
 
   const addImageToList = () => {
     if (newImageUrl && imagesList.length < 14) {
@@ -158,9 +161,8 @@ export default function Home() {
       return;
     }
 
-    if (mode === "generate" && !prompt.trim()) return;
-    if (mode === "edit" && imagesList.length === 0) {
-      setError("Please add at least one reference image for editing.");
+    if (!prompt.trim()) {
+      setError("Please enter a prompt.");
       return;
     }
 
@@ -168,22 +170,21 @@ export default function Home() {
       setLoading(true);
       setError(null);
       setResultUrl(null);
-      setStatusMessage(
-        mode === "generate"
-          ? "INITIATING EXTRACTION..."
-          : "RECONFIGURING ELEMENTS...",
-      );
+      setStatusMessage("INITIATING GENERATION...");
 
       const res = await fetch("/api/banana", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mode,
+          mode: "generate",
           prompt,
+          negativePrompt,
           aspect_ratio: aspectRatio.value,
           resolution: resolution.value,
-          google_search: googleSearch,
-          images_list: imagesList,
+          steps,
+          cfg,
+          sampler,
+          scheduler,
         }),
       });
 
@@ -234,6 +235,59 @@ export default function Home() {
     }
   };
 
+  const handleEdit = async () => {
+   // Guest Guard
+   if (!session) {
+     signIn();
+     return;
+   }
+
+   if (!prompt.trim()) {
+     setError("Please enter an edit prompt.");
+     return;
+   }
+
+   if (!editImage) {
+     setError("Please upload an image to edit.");
+     return;
+   }
+
+   try {
+     setLoading(true);
+     setError(null);
+     setResultUrl(null);
+     setStatusMessage("INITIATING EDIT...");
+
+     const formData = new FormData();
+     formData.append("prompt", prompt);
+     formData.append("image", editImage);
+     formData.append("steps", editSteps);
+     formData.append("cfg", editCfg);
+     formData.append("denoise", editDenoise);
+     formData.append("sampler", sampler);
+     formData.append("scheduler", "simple");
+
+     const res = await fetch("/api/banana/edit", {
+       method: "POST",
+       body: formData,
+     });
+
+     const data = await res.json();
+
+     if (!res.ok) {
+       throw new Error(data.error || "Failed to initiate edit.");
+     }
+
+     // Start Polling
+     const { request_id, metadata } = data;
+     await pollStatus(request_id, metadata);
+   } catch (err) {
+     setError(err.message || "An unexpected error occurred.");
+     console.error(err);
+     setLoading(false);
+   }
+  };
+
   return (
     <div className="flex flex-col-reverse lg:flex-row flex-1 h-full w-full overflow-y-auto lg:overflow-hidden">
       <aside className="w-full lg:w-96 border-t lg:border-t-0 lg:border-r border-glass-border bg-glass-bg backdrop-blur-3xl flex flex-col shrink-0 h-auto lg:h-full lg:overflow-y-auto custom-scrollbar">
@@ -249,21 +303,27 @@ export default function Home() {
 
           <div className="flex p-1 bg-glass-hover rounded-lg border border-glass-border">
             <button
-              onClick={() => setMode("generate")}
+              onClick={() => {
+                setMode("generate");
+                setEditImage(null);
+              }}
               className={`flex-1 py-2 rounded-md text-[10px] font-semibold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                 mode === "generate"
                   ? "bg-[var(--solid-bg)] text-foreground drop-shadow-sm shadow-md ring-1 ring-glass-border"
-                  : "text-muted hover:text-foreground drop-shadow-sm hover:bg-glass-hover"
+                  : "text-muted/60 hover:text-muted"
               }`}
             >
               <FaMagic className="text-xs" /> Generate
             </button>
             <button
-              onClick={() => setMode("edit")}
+              onClick={() => {
+                setMode("edit");
+                setEditImage(null);
+              }}
               className={`flex-1 py-2 rounded-md text-[10px] font-semibold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                 mode === "edit"
                   ? "bg-[var(--solid-bg)] text-foreground drop-shadow-sm shadow-md ring-1 ring-glass-border"
-                  : "text-muted hover:text-foreground drop-shadow-sm hover:bg-glass-hover"
+                  : "text-muted/60 hover:text-muted"
               }`}
             >
               <FaSyncAlt className="text-xs" /> Edit
@@ -274,219 +334,351 @@ export default function Home() {
           {/* Prompt Section */}
           <div className="space-y-2">
             <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-              <div className="w-1 h-1 bg-primary rounded-full" />{" "}
-              {mode === "generate" ? "Prompt" : "Edit Prompt"}
+              <div className="w-1 h-1 bg-primary rounded-full" /> {mode === "generate" ? "Prompt" : "Edit Directive"}
             </label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder={
-                mode === "generate"
-                  ? "A cybernetic banana floating in space..."
-                  : "Change the color of the banana to neon blue..."
-              }
-              className="w-full h-32 bg-[var(--solid-bg)] bg-opacity-70 border border-glass-border rounded-lg p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-all placeholder:text-muted/60 text-foreground drop-shadow-sm"
+              placeholder={mode === "generate" ? "A cybernetic banana floating in space..." : "Describe how you want to edit the image..."}
+              className="w-full h-24 bg-[var(--solid-bg)] bg-opacity-70 border border-glass-border rounded-lg p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-all placeholder:text-muted/60 text-foreground drop-shadow-sm"
             />
           </div>
 
-          {/* Edit Mode: Reference Images */}
+          {/* Image Upload for Edit Mode */}
           {mode === "edit" && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="space-y-4"
-            >
+            <div className="space-y-2">
               <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-                <div className="w-1 h-1 bg-primary rounded-full" /> Reference
-                Images ({imagesList.length}/14)
+                <div className="w-1 h-1 bg-primary rounded-full" /> Upload Image
               </label>
-
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newImageUrl}
-                    onChange={(e) => setNewImageUrl(e.target.value)}
-                    placeholder="Image URL..."
-                    className="flex-1 bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
-                  />
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    hidden
-                    accept=".png, .jpg, .jpeg"
-                    onChange={handleFileUpload}
-                  />
-                  <button
-                    onClick={() => {
-                      if (!session) {
-                        signIn();
+              <div className="relative">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
+                      if (!allowedTypes.includes(file.type)) {
+                        setError("Please upload only PNG, JPG, or JPEG images.");
                         return;
                       }
-                      fileInputRef.current?.click();
-                    }}
-                    disabled={isUploading || imagesList.length >= 14}
-                    className="w-10 h-10 bg-primary/10 border border-primary/10 text-primary rounded-lg flex items-center justify-center hover:bg-primary hover:text-white transition-all"
-                    title="Upload Local File"
-                  >
-                    {isUploading ? (
-                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <FaPlus className="text-lg group-hover:scale-110 transition-transform" />
-                    )}
-                  </button>
-                  <button
-                    onClick={addImageToList}
-                    disabled={!newImageUrl || imagesList.length >= 14}
-                    className="w-10 h-10 bg-primary/10 border border-primary/20 text-primary rounded-lg flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-sm"
-                    title="Add URL"
-                  >
-                    <FaPlus />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 pt-2">
-                  {imagesList.map((url, idx) => (
-                    <div
-                      key={idx}
-                      className="relative aspect-square rounded-lg bg-glass-bg overflow-hidden group border border-white/5"
-                    >
-                      <img src={url} className="w-full h-full object-cover" />
-                      <button
-                        onClick={() => removeImageFromList(idx)}
-                        className="absolute top-1 right-1 bg-red-500/80 p-1 rounded-lg text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <FaTrash className="text-[10px]" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                      if (file.size > 5 * 1024 * 1024) {
+                        setError("File size exceeds 5MB limit.");
+                        return;
+                      }
+                      setEditImage(file);
+                      setError(null);
+                    }
+                  }}
+                  accept="image/png,image/jpeg,image/jpg"
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full py-3 px-4 border-2 border-dashed border-glass-border rounded-lg text-center hover:bg-glass-hover transition-all disabled:opacity-50"
+                >
+                  {editImage ? (
+                    <span className="text-xs font-semibold text-foreground">
+                      ✓ {editImage.name}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-semibold text-muted">
+                      {isUploading ? "Uploading..." : "Click to upload image"}
+                    </span>
+                  )}
+                </button>
               </div>
-            </motion.div>
+            </div>
           )}
 
-          {/* Aspect Ratio */}
-          <div className="space-y-3" ref={ratioRef}>
-            <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-              <div className="w-1 h-1 bg-primary rounded-full" /> Aspect
-              Ratio
-            </label>
-            <div className="relative">
+          {/* Negative Prompt for Generate Mode */}
+          {mode === "generate" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                <div className="w-1 h-1 bg-primary rounded-full" /> Negative Prompt (Optional)
+              </label>
+              <textarea
+                value={negativePrompt}
+                onChange={(e) => setNegativePrompt(e.target.value)}
+                placeholder="Blur, low quality, distorted..."
+                className="w-full h-20 bg-[var(--solid-bg)] bg-opacity-70 border border-glass-border rounded-lg p-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none transition-all placeholder:text-muted/60 text-foreground drop-shadow-sm"
+              />
+            </div>
+          )}
+
+          {/* ComfyUI Generation Parameters */}
+          {mode === "generate" && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Steps */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> Steps
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={steps}
+                    onChange={(e) => setSteps(Number(e.target.value))}
+                    className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+                  />
+                </div>
+
+                {/* CFG */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> CFG Scale
+                  </label>
+                  <input
+                    type="number"
+                    min="0.1"
+                    max="20"
+                    step="0.1"
+                    value={cfg}
+                    onChange={(e) => setCfg(Number(e.target.value))}
+                    className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Sampler */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> Sampler
+                  </label>
+                  <select
+                    value={sampler}
+                    onChange={(e) => setSampler(e.target.value)}
+                    className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+                  >
+                    <option value="euler">Euler</option>
+                    <option value="euler_ancestral">Euler Ancestral</option>
+                    <option value="heun">Heun</option>
+                    <option value="dpm_2">DPM 2</option>
+                    <option value="dpm_2_ancestral">DPM 2 Ancestral</option>
+                    <option value="lms">LMS</option>
+                    <option value="dpm_fast">DPM Fast</option>
+                    <option value="dpm_adaptive">DPM Adaptive</option>
+                    <option value="dpmpp_2s_ancestral">DPMpp 2S Ancestral</option>
+                    <option value="dpmpp_2m">DPMpp 2M</option>
+                    <option value="dpmpp_sde">DPMpp SDE</option>
+                    <option value="dpmpp_sde_gpu">DPMpp SDE GPU</option>
+                    <option value="uni_pc">Uni PC</option>
+                    <option value="uni_pc_bh2">Uni PC BH2</option>
+                  </select>
+                </div>
+
+                {/* Scheduler */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> Scheduler
+                  </label>
+                  <select
+                    value={scheduler}
+                    onChange={(e) => setScheduler(e.target.value)}
+                    className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="karras">Karras</option>
+                    <option value="exponential">Exponential</option>
+                    <option value="simple">Simple</option>
+                    <option value="ddim_uniform">DDIM Uniform</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Edit Mode Parameters */}
+          {mode === "edit" && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Edit Steps */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> Steps
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={editSteps}
+                    onChange={(e) => setEditSteps(Number(e.target.value))}
+                    className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+                  />
+                </div>
+
+                {/* Edit CFG */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> CFG Scale
+                  </label>
+                  <input
+                    type="number"
+                    min="0.1"
+                    max="20"
+                    step="0.1"
+                    value={editCfg}
+                    onChange={(e) => setEditCfg(Number(e.target.value))}
+                    className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 text-foreground drop-shadow-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Denoise Slider */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-foreground font-semibold flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-1 bg-primary rounded-full" /> Denoise Strength
+                  </div>
+                  <span className="text-primary font-bold">{(editDenoise * 100).toFixed(0)}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.1"
+                  value={editDenoise}
+                  onChange={(e) => setEditDenoise(Number(e.target.value))}
+                  className="w-full h-2 bg-glass-bg rounded-lg appearance-none cursor-pointer accent-primary"
+                />
+                <p className="text-[10px] text-muted font-medium">
+                  Lower = subtle edits, Higher = stronger changes
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Aspect Ratio - Generate Mode Only */}
+          {mode === "generate" && (
+            <div className="space-y-3" ref={ratioRef}>
+              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                <div className="w-1 h-1 bg-primary rounded-full" /> Aspect Ratio
+              </label>
+              <div className="relative">
+                <button
+                  onClick={() => setIsRatioOpen(!isRatioOpen)}
+                  className="w-full flex items-center justify-between p-3 bg-glass-bg border border-glass-border hover:bg-glass-hover shadow-sm rounded-lg text-xs font-semibold transition-all outline-none text-foreground backdrop-blur-md"
+                >
+                  <div className="flex items-center gap-3">
+                    <FaExpand className="text-primary" />
+                    {aspectRatio.label}
+                  </div>
+                  <FaChevronDown
+                    className={`text-[10px] transition-transform duration-300 ${isRatioOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                <AnimatePresence>
+                  {isRatioOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 5 }}
+                      className="absolute top-12 left-0 right-0 max-h-60 bg-[var(--solid-bg)] border border-glass-border rounded-lg overflow-y-auto custom-scrollbar shadow-2xl z-[100] p-1"
+                    >
+                      {ASPECT_RATIOS.map((ratio) => (
+                        <button
+                          key={ratio.value}
+                          onClick={() => {
+                            setAspectRatio(ratio);
+                            setIsRatioOpen(false);
+                          }}
+                          className={`w-full text-left p-3 rounded-lg text-[10px] font-bold transition-all flex items-center gap-3 ${
+                            aspectRatio.value === ratio.value
+                              ? "bg-primary text-white shadow-md shadow-primary/20"
+                              : "text-muted hover:bg-glass-hover hover:text-foreground"
+                          }`}
+                        >
+                          <div
+                            className={`w-3 h-3 border ${aspectRatio.value === ratio.value ? "border-white" : "border-zinc-700"} rounded-sm`}
+                          />
+                          {ratio.label}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          )}
+
+          {/* Tiered Resolution - Generate Mode Only */}
+          {mode === "generate" && (
+            <div className="space-y-3">
+              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                <div className="w-1 h-1 bg-primary rounded-full" /> Resolution
+              </label>
+              <div className="flex gap-2">
+                {RESOLUTIONS.map((res) => (
+                  <button
+                    key={res.value}
+                    onClick={() => setResolution(res)}
+                    className={`flex-1 flex flex-col items-center py-3 rounded-lg border transition-all ${
+                      resolution.value === res.value
+                        ? "bg-primary border-primary/50 text-white shadow-lg shadow-primary/30"
+                        : "bg-glass-bg border-glass-border text-muted hover:bg-glass-hover hover:text-foreground"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold tracking-tight">
+                      {res.value}
+                    </span>
+                    <span
+                      className={`text-xs font-medium mt-1 ${resolution.value === res.value ? "text-white/80" : "opacity-60"}`}
+                    >
+                      {res.cost} Credits
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Google Search - Generate Mode Only */}
+          {mode === "generate" && (
+            <div className="space-y-3">
+              <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
+                <div className="w-1 h-1 bg-primary rounded-full" /> Google
+                Search
+              </label>
               <button
-                onClick={() => setIsRatioOpen(!isRatioOpen)}
-                className="w-full flex items-center justify-between p-3 bg-glass-bg border border-glass-border hover:bg-glass-hover shadow-sm rounded-lg text-xs font-semibold transition-all outline-none text-foreground backdrop-blur-md"
+                onClick={() => setGoogleSearch(!googleSearch)}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
+                  googleSearch
+                    ? "bg-primary border-primary/50 text-white shadow-md"
+                    : "bg-glass-bg border-glass-border text-muted hover:bg-glass-bg"
+                }`}
               >
                 <div className="flex items-center gap-3">
-                  <FaExpand className="text-primary" />
-                  {aspectRatio.label}
+                  <FaSearch
+                    className={googleSearch ? "text-white" : "text-muted"}
+                  />
+                  <span className="text-[10px] font-black uppercase tracking-widest leading-none">
+                    Smart Search
+                  </span>
                 </div>
-                <FaChevronDown
-                  className={`text-[10px] transition-transform duration-300 ${isRatioOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-
-              <AnimatePresence>
-                {isRatioOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 5 }}
-                    className="absolute top-12 left-0 right-0 max-h-60 bg-[var(--solid-bg)] border border-glass-border rounded-lg overflow-y-auto custom-scrollbar shadow-2xl z-[100] p-1"
-                  >
-                    {ASPECT_RATIOS.map((ratio) => (
-                      <button
-                        key={ratio.value}
-                        onClick={() => {
-                          setAspectRatio(ratio);
-                          setIsRatioOpen(false);
-                        }}
-                        className={`w-full text-left p-3 rounded-lg text-[10px] font-bold transition-all flex items-center gap-3 ${
-                          aspectRatio.value === ratio.value
-                            ? "bg-primary text-white shadow-md shadow-primary/20"
-                            : "text-muted hover:bg-glass-hover hover:text-foreground"
-                        }`}
-                      >
-                        <div
-                          className={`w-3 h-3 border ${aspectRatio.value === ratio.value ? "border-white" : "border-zinc-700"} rounded-sm`}
-                        />
-                        {ratio.label}
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          {/* Tiered Resolution */}
-          <div className="space-y-3">
-            <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-              <div className="w-1 h-1 bg-primary rounded-full" /> Resolution
-            </label>
-            <div className="flex gap-2">
-              {RESOLUTIONS.map((res) => (
-                <button
-                  key={res.value}
-                  onClick={() => setResolution(res)}
-                  className={`flex-1 flex flex-col items-center py-3 rounded-lg border transition-all ${
-                    resolution.value === res.value
-                      ? "bg-primary border-primary/50 text-white shadow-lg shadow-primary/30"
-                      : "bg-glass-bg border-glass-border text-muted hover:bg-glass-hover hover:text-foreground"
-                  }`}
+                <div
+                  className={`w-8 h-4 rounded-full relative p-1 transition-colors flex items-center ${googleSearch ? "bg-primary" : "bg-[var(--solid-bg)] border border-glass-border opacity-70"}`}
                 >
-                  <span className="text-sm font-semibold tracking-tight">
-                    {res.value}
-                  </span>
-                  <span
-                    className={`text-xs font-medium mt-1 ${resolution.value === res.value ? "text-white/80" : "opacity-60"}`}
-                  >
-                    {res.cost} Credits
-                  </span>
-                </button>
-              ))}
+                  <motion.div
+                    animate={{ x: googleSearch ? 14 : 0 }}
+                    className="w-2.5 h-2.5 rounded-full bg-white shadow-sm absolute left-1"
+                  />
+                </div>
+              </button>
             </div>
-          </div>
-
-          {/* Google Search */}
-          <div className="space-y-3">
-            <label className="text-xs font-medium text-foreground font-semibold flex items-center gap-2">
-              <div className="w-1 h-1 bg-primary rounded-full" /> Google
-              Search
-            </label>
-            <button
-              onClick={() => setGoogleSearch(!googleSearch)}
-              className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
-                googleSearch
-                  ? "bg-primary border-primary/50 text-white shadow-md"
-                  : "bg-glass-bg border-glass-border text-muted hover:bg-glass-bg"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <FaSearch
-                  className={googleSearch ? "text-white" : "text-muted"}
-                />
-                <span className="text-[10px] font-black uppercase tracking-widest leading-none">
-                  Smart Search
-                </span>
-              </div>
-              <div
-                className={`w-8 h-4 rounded-full relative p-1 transition-colors flex items-center ${googleSearch ? "bg-primary" : "bg-[var(--solid-bg)] border border-glass-border opacity-70"}`}
-              >
-                <motion.div
-                  animate={{ x: googleSearch ? 14 : 0 }}
-                  className="w-2.5 h-2.5 rounded-full bg-white shadow-sm absolute left-1"
-                />
-              </div>
-            </button>
-          </div>
+          )}
         </div>
         <div className="p-6 border-t border-glass-border">
           <button
-            onClick={handleGenerate}
+            onClick={mode === "generate" ? handleGenerate : handleEdit}
             disabled={
               loading ||
               (mode === "generate" && !prompt.trim()) ||
-              (mode === "edit" && imagesList.length === 0)
+              (mode === "edit" && (!editImage || !prompt.trim()))
             }
             className="w-full bg-primary hover:bg-primary-hover text-white rounded-lg py-3.5 font-bold tracking-wider uppercase text-xs flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 shadow-xl shadow-primary/30 border border-primary/50"
           >
@@ -495,7 +687,11 @@ export default function Home() {
             ) : (
               <FaBolt className="text-yellow-400" />
             )}
-            {loading ? "PROCESSING..." : `Generate ${resolution.cost} Credits`}
+            {loading
+              ? "PROCESSING..."
+              : mode === "generate"
+              ? `Generate ${resolution.cost} Credits`
+              : "EDIT - 2 Credits"}
           </button>
         </div>
       </aside>
@@ -614,7 +810,7 @@ export default function Home() {
                     <button
                       onClick={async () => {
                         setDownloading(true);
-                        await downloadImage(resultUrl, `nano-banana-${Date.now()}.jpg`);
+                        await downloadImage(resultUrl, `creation-${Date.now()}.jpg`);
                         setDownloading(false);
                       }}
                       disabled={downloading}

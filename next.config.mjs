@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  allowedDevOrigins: ['rbda.tail35758b.ts.net'],
 };
 
 export default nextConfig;

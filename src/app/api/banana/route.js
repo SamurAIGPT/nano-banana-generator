@@ -12,39 +12,49 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    const { mode, prompt, aspect_ratio, resolution, google_search, images_list } = body;
+    const {
+      mode = "generate",
+      prompt,
+      negativePrompt = "",
+      aspect_ratio = "1:1",
+      resolution = "1k",
+      steps = 20,
+      cfg = 7,
+      sampler = "euler",
+      scheduler = "karras",
+    } = body;
 
-    if (!prompt && mode !== 'edit') {
+    if (!prompt) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
 
-    let result;
+    // Only text-to-image generation via this endpoint
+    // For image editing, use /api/banana/edit instead
     if (mode === "edit") {
-      result = await AIService.edit(session.user.id, {
-        prompt,
-        images_list,
-        aspect_ratio,
-        resolution,
-        google_search,
-      });
-    } else {
-      result = await AIService.generate(session.user.id, {
-        prompt,
-        aspect_ratio,
-        resolution,
-        google_search,
-      });
+      return NextResponse.json({ error: "Use /api/banana/edit for image editing" }, { status: 400 });
     }
+
+    const result = await AIService.generate(session.user.id, {
+      prompt,
+      negativePrompt,
+      aspect_ratio,
+      resolution,
+      steps,
+      cfg,
+      sampler,
+      scheduler,
+    });
 
     return NextResponse.json({
       ...result,
-      metadata: { prompt, aspect_ratio, resolution }
+      metadata: { prompt, aspect_ratio, resolution, steps, cfg, sampler, scheduler }
     });
   } catch (error) {
     if (error.message === "Insufficient credits") {
       return new NextResponse("Insufficient credits", { status: 403 });
     }
-    console.error("[AI_BANANA]", error);
+    console.error("[AI_COMFY]", error);
     return new NextResponse(error.message || "Internal Error", { status: 500 });
   }
 }
+
