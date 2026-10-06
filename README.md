@@ -18,6 +18,7 @@ https://github.com/user-attachments/assets/8fedfcbe-b8e0-42e3-a67f-8e84b79c8f7b
 ## Related Projects
 
 - [awesome-ai-image-models](https://github.com/Anil-matcha/awesome-ai-image-models) — compare AI image models by API, price & quality
+- [Nano-Banana-2.1-API](https://github.com/Anil-matcha/Nano-Banana-2.1-API) — Nano Banana 2.1 API guide with Python, JavaScript, and curl examples through MuAPI.
 
 ## 🌐 Try the Live Engine
 
