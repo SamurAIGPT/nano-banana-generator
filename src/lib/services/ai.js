@@ -1,6 +1,7 @@
 import config from "@/lib/config";
 import { UserService } from "./user";
 import { prisma } from "@/lib/prisma";
+import { buildMuapiWebhookUrl, createMuapiWebhookToken, hashMuapiWebhookToken } from "./muapi-webhook";
 
 /**
  * Service to manage AI generations and interactions.
@@ -32,7 +33,21 @@ export const AIService = {
     const apiKey = isUsingCustomKey ? customApiKey.trim() : config.ai.banana.apiKey;
     if (!apiKey) throw new Error("NANO_BANANA_API_KEY is not configured");
 
-    const webhookUrl = `${config.auth.webhook_url}/api/webhook/muapi`;
+    const creationModel = prisma.creation || prisma.Creation;
+    if (!creationModel) throw new Error("Creation model is not available");
+    const webhookToken = createMuapiWebhookToken();
+    const creation = await creationModel.create({
+      data: {
+        userId,
+        prompt,
+        aspectRatio: aspect_ratio,
+        resolution,
+        status: "processing",
+        webhookTokenHash: hashMuapiWebhookToken(webhookToken),
+      }
+    });
+
+    const webhookUrl = buildMuapiWebhookUrl(config.auth.webhook_url, webhookToken);
     const submitUrl = `https://api.muapi.ai/api/v1/nano-banana-2?webhook=${encodeURIComponent(webhookUrl)}`;
     const submitRes = await fetch(submitUrl, {
       method: "POST",
@@ -51,25 +66,17 @@ export const AIService = {
 
     if (!submitRes.ok) {
       const errorText = await submitRes.text();
+      await creationModel.deleteMany({ where: { id: creation.id, status: "processing", requestId: null } });
       throw new Error(`API Submission Failed: ${submitRes.status} ${errorText}`);
     }
 
     const { request_id } = await submitRes.json();
     if (!request_id) throw new Error("No request_id received from API");
 
-    const creationModel = prisma.creation || prisma.Creation;
-    if (creationModel) {
-      await creationModel.create({
-        data: {
-          userId,
-          prompt,
-          aspectRatio: aspect_ratio,
-          resolution,
-          requestId: request_id,
-          status: "processing",
-        }
-      });
-    }
+    await creationModel.update({
+      where: { id: creation.id },
+      data: { requestId: request_id }
+    });
 
     return { request_id };
   },
@@ -88,7 +95,21 @@ export const AIService = {
     const apiKey = isUsingCustomKey ? customApiKey.trim() : config.ai.banana.apiKey;
     if (!apiKey) throw new Error("NANO_BANANA_API_KEY is not configured");
 
-    const webhookUrl = `${config.auth.webhook_url}/api/webhook/muapi`;
+    const creationModel = prisma.creation || prisma.Creation;
+    if (!creationModel) throw new Error("Creation model is not available");
+    const webhookToken = createMuapiWebhookToken();
+    const creation = await creationModel.create({
+      data: {
+        userId,
+        prompt,
+        aspectRatio: aspect_ratio,
+        resolution,
+        status: "processing",
+        webhookTokenHash: hashMuapiWebhookToken(webhookToken),
+      }
+    });
+
+    const webhookUrl = buildMuapiWebhookUrl(config.auth.webhook_url, webhookToken);
     const submitUrl = `https://api.muapi.ai/api/v1/nano-banana-2-edit?webhook=${encodeURIComponent(webhookUrl)}`;
     const submitRes = await fetch(submitUrl, {
       method: "POST",
@@ -107,25 +128,17 @@ export const AIService = {
 
     if (!submitRes.ok) {
       const errorText = await submitRes.text();
+      await creationModel.deleteMany({ where: { id: creation.id, status: "processing", requestId: null } });
       throw new Error(`API Submission Failed: ${submitRes.status} ${errorText}`);
     }
 
     const { request_id } = await submitRes.json();
     if (!request_id) throw new Error("No request_id received from API");
 
-    const creationModel = prisma.creation || prisma.Creation;
-    if (creationModel) {
-      await creationModel.create({
-        data: {
-          userId,
-          prompt,
-          aspectRatio: aspect_ratio,
-          resolution,
-          requestId: request_id,
-          status: "processing",
-        }
-      });
-    }
+    await creationModel.update({
+      where: { id: creation.id },
+      data: { requestId: request_id }
+    });
 
     return { request_id };
   },
